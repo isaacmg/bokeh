@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -27,22 +27,42 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 log = logging.getLogger(__name__)
 
-from bokeh.util.api import public, internal ; public, internal
+#-----------------------------------------------------------------------------
+# Imports
+#-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Public API
+# Globals and constants
+#-----------------------------------------------------------------------------
+
+# __all__ defined at the bottom on the class module
+
+#-----------------------------------------------------------------------------
+# General API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Dev API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Private API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Code
 #-----------------------------------------------------------------------------
 
 from .session import ClientSession
+from .session import DEFAULT_SESSION_ID
 from .session import pull_session
 from .session import push_session
 from .session import show_session
-from .session import DEFAULT_SESSION_ID
 
 __all__ = (
     'ClientSession',
+    'DEFAULT_SESSION_ID',
     'pull_session',
     'push_session',
     'show_session',
-    'DEFAULT_SESSION_ID',
 )

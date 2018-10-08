@@ -5,9 +5,8 @@ Getting Set Up
 
 The Bokeh project encompasses two major components: the Bokeh package source
 code, written in Python, and the BokehJS client-side library, written in
-CoffeeScript and TypeScript. Accordingly, development of Bokeh is slightly
-complicated by the explicit compilation step required to generate deployable
-JavaScript.
+TypeScript. Accordingly, development of Bokeh is slightly complicated by
+the explicit compilation step required to generate deployable JavaScript.
 
 For this reason, in order to develop Bokeh from a source checkout, you must
 first be able to build BokehJS. This chapter will walk you through getting a
@@ -47,6 +46,23 @@ is available.
 
 To install Conda on any platform, see the `Download conda`_ section of the
 `conda documentation`_.
+
+Conda environment
+~~~~~~~~~~~~~~~~~
+
+Setting up an isolated conda environment to guarantee package compatibility
+is considered best practice. To set up a clean environment, issue the following
+command:
+
+.. code-block:: sh
+
+    conda create --name bokeh-dev
+
+Then, to activate the environment:
+
+.. code-block:: sh
+
+    conda activate bokeh-dev
 
 .. _devguide_cloning:
 
@@ -91,7 +107,8 @@ sources:
     If you do not wish to make configuration changes to your ``conda``
     configuration, then the channels above can be added on a per-command
     basis with the ``-c`` command line option to ``conda``, e.g.
-    ``conda install -c bokeh -c conda-forge <pkgs>``
+    ``conda install -c bokeh -c conda-forge <pkgs>``. Alternatively, add the
+    channels to the current active conda environment with the ``--env`` flag.
 
 It's also necessary to install `jinja2` and `pyyaml` first, to bootstrap
 the rest of these instructions. To do that, execute:
@@ -103,13 +120,19 @@ the rest of these instructions. To do that, execute:
 From the top level of the *source checkout* directory, execute the following
 command at your command prompt to install all the required packages:
 
-* OSX / Linux
+* OSX / Linux (bash / sh)
 
     .. code-block:: sh
 
         conda install `python scripts/deps.py build run test`
 
     Note the required backticks in the command.
+
+* OSX / Linux (fish)
+
+    .. code-block:: fish
+
+        conda install (python scripts/deps.py build run test | string replace -ar '\s\s+' ' ' | string split ' ' | string escape)
 
 * Windows (Powershell)
 
@@ -140,13 +163,26 @@ the Node Package Manager. If you have followed the instructions above,
 ``conda`` has already installed the necessary ``npm`` and ``node.js``
 packages to your system.
 
-Starting from the top level of the *source checkout* directory, execute
-the following commands
+Bokeh is typically updated to require the latest major revision of ``npm``
+in order to build. To install the lastest version globally, start from the
+top level of the *source checkout* directory, and execute the following
+commands
 
 .. code-block:: sh
 
     cd bokehjs
-    npm install
+    npm install -g npm
+
+If you do not wish to install globally (i.e. with ``-g``) then all
+subsequent ``npm`` commands will need to be adjusted to use the local
+version installed under ``bokehjs/node_modules``.
+
+Next, still in the ``bokehjs`` subdirectory, execute the following command
+to install all of BokehJS JavaScript dependencies:
+
+.. code-block:: sh
+
+    npm install --no-save
 
 This command will install the necessary packages into the ``node_modules``
 subdirectory.
@@ -182,7 +218,7 @@ on git hooks, see `this turorial`_.
 
 ``pre-commit``
 
-    This git hook runs the code quality tests before allowing a commit to
+    This git hook runs all the codebase tests before allowing a commit to
     proceed. Note that all the standard testing dependencies must be installed
     in order for this hook to function.
 
@@ -190,7 +226,7 @@ on git hooks, see `this turorial`_.
 
         #!/bin/bash
 
-        py.test -m quality
+        py.test -m codebase
         exit $?
 
 ``pre-push``
@@ -222,9 +258,11 @@ on git hooks, see `this turorial`_.
 Git Aliases
 ~~~~~~~~~~~
 
-There are also some useful aliases that can be added to the ``.gitconfig`` file located in your home directory.
+There are also some useful aliases that can be added to the ``.gitconfig``
+file located in your home directory.
 
-The following alias adds a ``git resolve`` command that will automatically open up your editor to resolve any merge conflicts.
+The following alias adds a ``git resolve`` command that will automatically
+open up your editor to resolve any merge conflicts.
 
 .. code-block:: sh
 
@@ -252,10 +290,9 @@ The ``setup.py`` script has two main modes of operation:
 
 ``python setup.py develop``
 
-    A ``bokeh.pth`` path file will be written to your Python ``site-packages``
-    directory that points to the ``bokeh`` subdirectory of your *source
-    checkout*. Any changes you make to the python source code will be available
-    immediately without any additional steps.
+    Bokeh will be installed to refer to the source directory. Any changes
+    you make to the python source code will be available immediately without
+    any additional steps.
 
 With either mode, you will be prompted for how to install BokehJS, e.g.:
 
@@ -287,6 +324,20 @@ install.
     occurs, you will also need to re-run the instructions in the
     :ref:`dev_guide_installing_dependencies_node` section above.
 
+Downloading Sample Data
+-----------------------
+
+Several tests and examples require Bokeh's sample data to be available. Once
+Bokeh is installed, the simplest way that sample data can be obtained is by
+executing the following command at a Bash or Windows prompt:
+
+.. code-block:: sh
+
+    bokeh sampledata
+
+It's also possible to configue the download location, or to start the download
+programmatically. For full details see the :ref:`install_sampledata` section of
+the User's Guide.
 
 Next Steps
 ----------

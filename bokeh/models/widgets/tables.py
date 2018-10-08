@@ -356,6 +356,8 @@ class HTMLTemplateFormatter(CellFormatter):
     The formatter has access other items in the row via the `dataContext` object passed to the formatter.
     So, for example, if another column in the datasource was named `url`, the template could access it as:
 
+    .. code-block:: jinja
+
         <a href="<%= url %>"><%= value %></a>
 
     To use a different set of template delimiters, pass the appropriate values for `evaluate`, `interpolate',
@@ -363,11 +365,17 @@ class HTMLTemplateFormatter(CellFormatter):
 
     Example: Simple HTML template to format the column value as code.
 
+    .. code-block:: python
+
         HTMLTemplateFormatter(template='<code><%= value %></code>')
 
     Example: Use values from other columns (`manufacturer` and `model`) to build a hyperlink.
 
-        HTMLTemplateFormatter(template='<a href="https:/www.google.com/search?q=<%= manufacturer %>+<%= model %>" target="_blank"><%= value %></a>')
+    .. code-block:: python
+
+        HTMLTemplateFormatter(template=
+            '<a href="https:/www.google.com/search?q=<%= manufacturer %>+<%= model %>" target="_blank"><%= value %></a>'
+        )
 
     '''
     template = String('<%= value %>', help="""
@@ -537,14 +545,34 @@ class DataTable(TableWidget):
     enabled) or using Shift + click on rows.
     """)
 
-    row_headers = Bool(True, help="""
-    Enable or disable row headers, i.e. the index column.
+    index_position = Int(0, help="""
+    Where among the list of columns to insert a column displaying the row
+    index. Negative indices are supported, and specify an index position
+    from the end of the list of columns (i.e. standard Python behaviour).
+
+    To prevent the index column from being added, set to None.
+
+    If the absolute value of index_position  is larger than the length of
+    the columns, then the index will appear at the beginning or end, depending
+    on the sign.
+    """)
+
+    index_header = String("#", help="""
+    The column header to display for the index column, if it is present.
+    """)
+
+    index_width = Int(40, help="""
+    The width of the index column, if present.
     """)
 
     scroll_to_selection = Bool(True, help="""
     Whenever a selection is made on the data source, scroll the selected
     rows into the table's viewport if none of the selected rows are already
     in the viewport.
+    """)
+
+    header_row = Bool(True, help="""
+    Whether to show a header row with column names at the top of the table.
     """)
 
     height = Override(default=400)

@@ -13,9 +13,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import pytest ; pytest
 
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -31,34 +28,17 @@ from bokeh.io.doc import curdoc
 from bokeh.io.output import output_notebook
 from bokeh.io.state import curstate, State
 from bokeh.models.plots import Plot
+from bokeh.models.renderers import GlyphRenderer
 
 # Module under test
 import bokeh.io.showing as bis
-
-#-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
-
-api = {
-
-    PUBLIC: (
-
-        ( 'show', (1, 0, 0) ),
-
-    ), INTERNAL: (
-
-    )
-
-}
-
-Test_api = verify_api(bis, api)
 
 #-----------------------------------------------------------------------------
 # Setup
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 @patch('bokeh.io.showing._show_with_state')
@@ -70,7 +50,7 @@ def test_show_with_default_args(mock__show_with_state):
     assert mock__show_with_state.call_count == 1
     assert mock__show_with_state.call_args[0] == (p, curstate(), None, "tab")
     assert mock__show_with_state.call_args[1] == {'notebook_handle': False}
-    assert p in curdoc().roots
+    assert curdoc().roots == []
 
 @patch('bokeh.io.showing._show_with_state')
 def test_show_with_explicit_args(mock__show_with_state):
@@ -81,7 +61,7 @@ def test_show_with_explicit_args(mock__show_with_state):
     assert mock__show_with_state.call_count == 1
     assert mock__show_with_state.call_args[0] == (p, curstate(), "browser", "new")
     assert mock__show_with_state.call_args[1] == {'notebook_handle': True}
-    assert p in curdoc().roots
+    assert curdoc().roots == []
 
 @patch('bokeh.io.showing.run_notebook_hook')
 def test_show_with_app(mock_run_notebook_hook):
@@ -96,26 +76,24 @@ def test_show_with_app(mock_run_notebook_hook):
     assert mock_run_notebook_hook.call_args[1] == {}
 
 @patch('bokeh.io.showing._show_with_state')
-def test_show_adds_obj_to_document_if_not_already_there(m):
+def test_show_doesn_not_adds_obj_to_curdoc(m):
     curstate().reset()
     assert curstate().document.roots == []
     p = Plot()
     bis.show(p)
-    assert p in curstate().document.roots
-
-@patch('bokeh.io.showing._show_with_state')
-def test_show_doesnt_duplicate_if_already_there(m):
-    curstate().reset()
     assert curstate().document.roots == []
     p = Plot()
     bis.show(p)
-    assert curstate().document.roots == [p]
-    bis.show(p)
-    assert curstate().document.roots == [p]
+    assert curstate().document.roots == []
 
+@pytest.mark.parametrize('obj', [1, 2.3, None, "str", GlyphRenderer()])
+@pytest.mark.unit
+def test_show_with_bad_object(obj):
+    with pytest.raises(ValueError):
+        bis.show(obj)
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------

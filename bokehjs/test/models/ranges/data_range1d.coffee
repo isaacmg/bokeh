@@ -1,13 +1,12 @@
 {expect} = require "chai"
-utils = require "../../utils"
 sinon = require "sinon"
 
-{HasProps} = utils.require "core/has_props"
-p = utils.require "core/properties"
+{HasProps} = require "core/has_props"
+p = require "core/properties"
 
-{CustomJS} = utils.require("models/callbacks/customjs")
-{DataRange1d} = utils.require("models/ranges/data_range1d")
-{GlyphRenderer} = utils.require("models/renderers/glyph_renderer")
+{CustomJS} = require("models/callbacks/customjs")
+{DataRange1d} = require("models/ranges/data_range1d")
+{GlyphRenderer} = require("models/renderers/glyph_renderer")
 
 class TestObject extends HasProps
   type: 'TestObject'
@@ -17,14 +16,6 @@ class TestObject extends HasProps
   }
 
 describe "datarange1d module", ->
-
-  afterEach ->
-    utils.unstub_canvas()
-    utils.unstub_solver()
-
-  beforeEach ->
-    utils.stub_canvas()
-    utils.stub_solver()
 
   describe "default creation", ->
     r = new DataRange1d()
@@ -45,6 +36,9 @@ describe "datarange1d module", ->
 
     it "should have flipped = false", ->
       expect(r.flipped).to.be.equal false
+
+    it "should not be reversed", ->
+      expect(r.is_reversed).to.be.equal false
 
     it "should have follow = null", ->
       expect(r.follow).to.be.null
@@ -72,6 +66,12 @@ describe "datarange1d module", ->
 
     it "should have max = 20", ->
       expect(r.max).to.be.equal 20
+
+ describe "explicit inverted bounds=(20,10) creation", ->
+   r = new DataRange1d({start: 20, end:10})
+
+   it "should be reversed", ->
+     expect(r.is_reversed).to.be.equal true
 
   describe "reset", ->
 
@@ -335,3 +335,26 @@ describe "datarange1d module", ->
       expect(spy.called).to.be.false
       r.start = 15
       expect(spy.calledOnce).to.be.true
+
+  describe "adjust_bounds_for_aspect", ->
+    it "should preserve y axis when it is larger", ->
+      r = new DataRange1d()
+
+      bds = {minX: 0, maxX: 1, minY: 0, maxY: 2}
+
+      bds = r.adjust_bounds_for_aspect(bds, 4)
+      expect(bds.minX).to.be.equal -3.5
+      expect(bds.maxX).to.be.equal 4.5
+      expect(bds.minY).to.be.equal 0
+      expect(bds.maxY).to.be.equal 2
+
+    it "should preserve x axis when it is larger", ->
+      r = new DataRange1d()
+
+      bds = {minX: 0, maxX: 8, minY: 0, maxY: 1}
+
+      bds = r.adjust_bounds_for_aspect(bds, 4)
+      expect(bds.minX).to.be.equal 0
+      expect(bds.maxX).to.be.equal 8
+      expect(bds.minY).to.be.equal -0.5
+      expect(bds.maxY).to.be.equal 1.5

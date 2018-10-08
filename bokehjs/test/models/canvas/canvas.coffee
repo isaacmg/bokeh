@@ -1,12 +1,11 @@
 {expect} = require "chai"
-utils = require "../../utils"
 sinon = require 'sinon'
 
-{Canvas, CanvasView} = utils.require("models/canvas/canvas")
-{Plot} = utils.require("models/plots/plot")
-{Range1d} = utils.require("models/ranges/range1d")
-{Document} = utils.require("document")
-{Variable}  = utils.require("core/layout/solver")
+{Canvas, CanvasView} = require("models/canvas/canvas")
+{Plot} = require("models/plots/plot")
+{Range1d} = require("models/ranges/range1d")
+{Document} = require("document")
+{Variable}  = require("core/layout/solver")
 
 describe "Canvas", ->
 
@@ -21,61 +20,9 @@ describe "Canvas", ->
     expect(c._width).to.be.an.instanceOf(Variable)
     expect(c._height).to.be.an.instanceOf(Variable)
 
-  describe "Coordinate transforms", ->
-    c = new Canvas()
-    # stub solver property
-    c._height.setValue(100)
-
-    it "Canvas.vx_to_sx method", ->
-      expect(c.vx_to_sx(10)).to.be.equal(10)
-
-    it "Canvas.vy_to_sy method", ->
-      expect(c.vy_to_sy(10)).to.be.equal(90)
-
-    it "Canvas.v_vx_to_sx method", ->
-      sxs = c.v_vx_to_sx([0, 1, 2])
-      expect(sxs).to.be.instanceOf(Float64Array)
-      expect(sxs).to.be.deep.equal(new Float64Array([0, 1, 2]))
-
-    it "Canvas.v_vy_to_sy method", ->
-      sys = c.v_vy_to_sy([0, 1, 2])
-      expect(sys).to.be.instanceOf(Float64Array)
-      expect(sys).to.be.deep.equal(new Float64Array([100, 99, 98]))
-
-    it "Canvas.sx_to_vx method", ->
-      expect(c.sx_to_vx(10)).to.be.equal(10)
-
-    it "Canvas.sy_to_vy method", ->
-      expect(c.sy_to_vy(90)).to.be.equal(10)
-
-    it "Canvas.v_sx_to_vx method", ->
-      vxs = c.v_sx_to_vx([0, 1, 2])
-      expect(vxs).to.be.instanceOf(Float64Array)
-      expect(vxs).to.be.deep.equal(new Float64Array([0, 1, 2]))
-
-    it "Canvas.v_sy_to_vy method", ->
-      vys = c.v_sy_to_vy([100, 99, 98])
-      expect(vys).to.be.instanceOf(Float64Array)
-      expect(vys).to.be.deep.equal(new Float64Array([0, 1, 2]))
-
-    it "expect stuff", ->
-      start = 0
-      one = c.vy_to_sy(0)
-      two = c.sy_to_vy(one)
-      expect(start).to.be.equal(two)
-
 describe "CanvasView", ->
 
-  afterEach ->
-    utils.unstub_canvas()
-    utils.unstub_solver()
-
   beforeEach ->
-    utils.stub_canvas()
-    solver_stubs = utils.stub_solver()
-    @solver_add_stub = solver_stubs['add']
-    @solver_remove_stub = solver_stubs['remove']
-
     doc = new Document()
     plot = new Plot({
       x_range: new Range1d({start: 0, end: 1})

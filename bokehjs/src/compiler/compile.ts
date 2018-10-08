@@ -1,10 +1,11 @@
 import * as fs from "fs"
 import * as path from "path"
 import * as ts from "typescript"
-const coffee = require("coffee-script")
-const detective = require("detective")
+const coffee = require("coffeescript")
 const less = require("less")
 import {argv} from "yargs"
+
+import {collect_deps} from "./dependencies"
 
 const mkCoffeescriptError = (error: any, file?: string) => {
   const message = error.message
@@ -100,8 +101,6 @@ const compile_and_resolve_deps = (input: {code: string, lang: string, file: stri
       noImplicitAny: false,
       target: ts.ScriptTarget.ES5,
       module: ts.ModuleKind.CommonJS,
-      jsx: ts.JsxEmit.React,
-      reactNamespace: "DOM",
     },
   })
 
@@ -110,14 +109,12 @@ const compile_and_resolve_deps = (input: {code: string, lang: string, file: stri
     return reply({error: mkTypeScriptError(diagnostic)})
   }
 
-  const source = result.outputText
+  code = result.outputText
 
-  try {
-    const deps = detective(source)
-    return reply({ code: source, deps: deps })
-  } catch(error) {
-    return reply({error: error})
-  }
+  const source = ts.createSourceFile(input.file, code, ts.ScriptTarget.ES5, true, ts.ScriptKind.JS)
+  const deps = collect_deps(source)
+
+  return reply({code, deps})
 }
 
 if (argv.file != null) {

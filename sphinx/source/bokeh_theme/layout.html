@@ -26,8 +26,7 @@
 
   <!-- CSS
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <link rel="stylesheet" href="//{{ css_server }}/theme/css/main.css">
-
+  <link rel="stylesheet" href="{{ pathto('_static/' + theme_css, 1) }}">
 
   <!-- Scripts
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
@@ -58,9 +57,9 @@
       <a href="javascript:void(0)" class="navigation-menu-button" id="js-mobile-menu">Menu</a>
       <nav>
         <ul id="js-navigation-menu" class="navigation-menu show">
-          {% for name, link in NAV %}
-              <li class="nav-link"><a href="{{ link }}">{{ name }}</a></li>
-          {% endfor %}
+        {% for name, link in NAV %}
+          <li class="nav-link"><a href="{{ link }}">{{ name }}</a></li>
+        {% endfor %}
         </ul>
       </nav>
     </div>
@@ -76,13 +75,14 @@
             </ul>
         </li>
         {%- for name, link in NAV_DOCS  %}
+            {% if hasdoc('docs/' + link) %}
             <li class="nav-link doc-head"><a href="{{ pathto('docs/' + link) }}">{{ name }}</a></li>
+            {% else %}
+            <li class="nav-link doc-head"><a href="{{ link }}">{{ name }}</a></li>
+            {% endif %}
         {%- endfor %}
       </ul>
     </nav>
-    <div class="navigation-tools">
-      {% include 'includes/searchbox.html' %}
-    </div>
   </div>
 
 <!-- MAIN BODY OF DOCS –––––––––––––––––– -->
@@ -102,19 +102,17 @@
     <ul>
       <li><span class="footer-title">About Us</span></li>
       {% for name, link in ABOUT %}
-          <li><a href="{{ link }}">{{ name }}</a></li>
-      {% endfor %}
-    </ul>
-    <ul>
-      <li><span class="footer-title">Links</span></li>
-      {% for name, link in LINKS %}
-          <li><a href="{{ link }}">{{ name }}</a></li>
+        <li><a href="{{ pathto('docs/' + link) }}">{{ name }}</a></li>
       {% endfor %}
     </ul>
     <ul>
       <li><span class="footer-title">Join Us</span></li>
       {% for name, link in SOCIAL %}
-          <li><a href="{{ link }}">{{ name }}</a></li>
+          {% if hasdoc('docs/' + link) %}
+            <li><a href="{{ pathto('docs/' + link) }}">{{ name }}</a></li>
+            {% else %}
+            <li><a href="{{ link }}">{{ name }}</a></li>
+            {% endif %}
       {% endfor %}
     </ul>
     <ul class="copyright">
@@ -124,7 +122,7 @@
 </footer>
 
 <!-- Google Analytics -->
-{% include 'includes/ga.html' %}
+{% include 'ga.html' %}
 
 <!-- End Document
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->

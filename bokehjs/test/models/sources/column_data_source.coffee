@@ -1,36 +1,13 @@
 {expect} = require "chai"
-utils = require "../../utils"
 { stdoutTrap, stderrTrap } = require 'logtrap'
 
-{Set} = utils.require("core/util/data_structures")
-{set_log_level} = utils.require "core/logging"
+{Set} = require("core/util/data_structures")
+{set_log_level} = require "core/logging"
 
-{ColumnDataSource, concat_typed_arrays, stream_to_column, slice, patch_to_column} = utils.require("models/sources/column_data_source")
+{keys} = require("core/util/object")
+{ColumnDataSource, stream_to_column, slice, patch_to_column} = require("models/sources/column_data_source")
 
 describe "column_data_source module", ->
-
-  describe "concat_typed_arrays", ->
-
-    it "should concat Float32 arrays", ->
-      a = new Float32Array([1,2])
-      b = new Float32Array([3,4])
-      c = concat_typed_arrays(a, b)
-      expect(c).to.be.instanceof Float32Array
-      expect(c).to.be.deep.equal new Float32Array([1,2,3,4])
-
-    it "should concat Float64 arrays", ->
-      a = new Float64Array([1,2])
-      b = new Float64Array([3,4])
-      c = concat_typed_arrays(a, b)
-      expect(c).to.be.instanceof Float64Array
-      expect(c).to.be.deep.equal new Float64Array([1,2,3,4])
-
-   it "should concat Int32 arrays", ->
-      a = new Int32Array([1,2])
-      b = new Int32Array([3,4])
-      c = concat_typed_arrays(a, b)
-      expect(c).to.be.instanceof Int32Array
-      expect(c).to.be.deep.equal new Int32Array([1,2,3,4])
 
   describe "slice", ->
 
@@ -545,3 +522,35 @@ describe "column_data_source module", ->
       r = new ColumnDataSource({data: {foo: [1], bar: [1,2], baz: [1]}})
       out = stderrTrap -> r.get_length()
       expect(out).to.be.equal "[bokeh] data source has columns of inconsistent lengths\n"
+
+  describe "columns method", ->
+
+    it "should report .data.keys", ->
+      r = new ColumnDataSource({data: {foo: [10, 20], bar:[10, 20]}})
+      expect(r.columns()).to.be.deep.equal keys(r.data)
+
+    it "should update if columns update", ->
+      r = new ColumnDataSource({data: {foo: [10, 20], bar:[10, 20]}})
+      r.data.baz = [11, 21]
+      expect(r.columns()).to.be.deep.equal keys(r.data)
+
+  describe "clear method", ->
+
+    it "should clear plain arrys to plain arrays", ->
+      r = new ColumnDataSource({data: {foo: [10, 20], bar:[10, 20]}})
+      r.clear()
+      expect(r.data).to.be.deep.equal {foo: [], bar:[]}
+
+    it "should clear typed arrays to typed arrays", ->
+      for typ in [Float32Array, Float64Array, Int32Array]
+        r = new ColumnDataSource({data: {foo: [10, 20], bar: new typ([1,2])}})
+        r.clear()
+        expect(r.data).to.be.deep.equal {foo: [], bar: new typ([])}
+
+    it "should clear columns added later", ->
+      for typ in [Float32Array, Float64Array, Int32Array]
+        r = new ColumnDataSource({data: {foo: [10, 20]}})
+        r.data.bar = [100, 200]
+        r.data.baz = new typ([1,2])
+        r.clear()
+        expect(r.data).to.be.deep.equal {foo: [], bar: [], baz: new typ([])}

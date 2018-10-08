@@ -5,7 +5,6 @@ import pytest
 from mock import patch
 
 import logging
-import unittest
 
 from copy import copy
 
@@ -16,12 +15,17 @@ from bokeh.models import ColumnDataSource
 from bokeh.document.events import (ColumnsPatchedEvent, ColumnsStreamedEvent, ModelChangedEvent, RootAddedEvent,
                                    RootRemovedEvent, SessionCallbackAdded, SessionCallbackRemoved, TitleChangedEvent)
 from bokeh.protocol.messages.patch_doc import process_document_events
+from bokeh.util.logconfig import basicConfig
 
 from .setup import AnotherModelInTestDocument, SomeModelInTestDocument, ModelThatOverridesName, ModelWithSpecInTestDocument
+
+# needed for caplog tests to function
+basicConfig()
 
 class TestDocumentHold(object):
 
     @pytest.mark.parametrize('policy', document.HoldPolicy)
+    @pytest.mark.unit
     def test_hold(self, policy):
         d = document.Document()
         assert d._hold == None
@@ -36,6 +40,7 @@ class TestDocumentHold(object):
             d.hold("junk")
 
     @pytest.mark.parametrize('first,second', [('combine', 'collect'), ('collect', 'combine')])
+    @pytest.mark.unit
     def test_rehold(self, first, second, caplog):
         d = document.Document()
         with caplog.at_level(logging.WARN):
@@ -57,6 +62,7 @@ class TestDocumentHold(object):
             assert len(caplog.records) == 1
 
     @pytest.mark.parametrize('policy', document.HoldPolicy)
+    @pytest.mark.unit
     def test_unhold(self, policy):
         d = document.Document()
         assert d._hold == None
@@ -111,7 +117,9 @@ class Test_Document_delete_modules(object):
         # add an extra referrer for delete_modules to complain about
         extra.append(mod)
         import gc
-        assert len(gc.get_referrers(mod)) == 4
+
+        # get_referrers behavior changed in Python 3.7, see https://github.com/bokeh/bokeh/issues/8221
+        assert len(gc.get_referrers(mod)) in (3,4)
 
         with caplog.at_level(logging.ERROR):
             d.delete_modules()
@@ -121,7 +129,7 @@ class Test_Document_delete_modules(object):
         assert 'junkjunkjunk' not in sys.modules
         assert d._modules is None
 
-class TestDocument(unittest.TestCase):
+class TestDocument(object):
 
     def test_empty(self):
         d = document.Document()
@@ -542,13 +550,13 @@ class TestDocument(unittest.TestCase):
 
         def cb(): pass
 
-        callback = d.add_periodic_callback(cb, 1)
+        callback_obj = d.add_periodic_callback(cb, 1)
         assert len(d.session_callbacks) == len(events) == 1
         assert isinstance(events[0], SessionCallbackAdded)
-        assert callback == d.session_callbacks[0] == events[0].callback
-        assert callback.period == 1
+        assert callback_obj == d.session_callbacks[0] == events[0].callback
+        assert callback_obj.period == 1
 
-        callback = d.remove_periodic_callback(cb)
+        d.remove_periodic_callback(callback_obj)
         assert len(d.session_callbacks) == 0
         assert len(events) == 2
         assert isinstance(events[0], SessionCallbackAdded)
@@ -567,13 +575,13 @@ class TestDocument(unittest.TestCase):
 
         def cb(): pass
 
-        callback = d.add_timeout_callback(cb, 1)
+        callback_obj = d.add_timeout_callback(cb, 1)
         assert len(d.session_callbacks) == len(events) == 1
         assert isinstance(events[0], SessionCallbackAdded)
-        assert callback == d.session_callbacks[0] == events[0].callback
-        assert callback.timeout == 1
+        assert callback_obj == d.session_callbacks[0] == events[0].callback
+        assert callback_obj.timeout == 1
 
-        callback = d.remove_timeout_callback(cb)
+        d.remove_timeout_callback(callback_obj)
         assert len(d.session_callbacks) == 0
         assert len(events) == 2
         assert isinstance(events[0], SessionCallbackAdded)
@@ -594,11 +602,11 @@ class TestDocument(unittest.TestCase):
         def _cb(): pass
         cb = partial(_cb)
 
-        callback = d.add_timeout_callback(cb, 1)
+        callback_obj = d.add_timeout_callback(cb, 1)
         assert len(d.session_callbacks) == len(events) == 1
         assert isinstance(events[0], SessionCallbackAdded)
-        assert callback == d.session_callbacks[0] == events[0].callback
-        assert callback.timeout == 1
+        assert callback_obj == d.session_callbacks[0] == events[0].callback
+        assert callback_obj.timeout == 1
 
     def test_add_remove_next_tick_callback(self):
         d = document.Document()
@@ -613,12 +621,12 @@ class TestDocument(unittest.TestCase):
 
         def cb(): pass
 
-        callback = d.add_next_tick_callback(cb)
+        callback_obj = d.add_next_tick_callback(cb)
         assert len(d.session_callbacks) == len(events) == 1
         assert isinstance(events[0], SessionCallbackAdded)
-        assert callback == d.session_callbacks[0] == events[0].callback
+        assert callback_obj == d.session_callbacks[0] == events[0].callback
 
-        callback = d.remove_next_tick_callback(cb)
+        d.remove_next_tick_callback(callback_obj)
         assert len(d.session_callbacks) == 0
         assert len(events) == 2
         assert isinstance(events[0], SessionCallbackAdded)
@@ -630,8 +638,8 @@ class TestDocument(unittest.TestCase):
         curdoc_from_cb = []
         def cb():
             curdoc_from_cb.append(curdoc())
-        callback = d.add_periodic_callback(cb, 1)
-        callback.callback()
+        callback_obj = d.add_periodic_callback(cb, 1)
+        callback_obj.callback()
         assert len(curdoc_from_cb) == 1
         assert curdoc_from_cb[0] is d
 
@@ -641,8 +649,8 @@ class TestDocument(unittest.TestCase):
         curdoc_from_cb = []
         def cb():
             curdoc_from_cb.append(curdoc())
-        callback = d.add_timeout_callback(cb, 1)
-        callback.callback()
+        callback_obj = d.add_timeout_callback(cb, 1)
+        callback_obj.callback()
         assert len(curdoc_from_cb) == 1
         assert curdoc_from_cb[0] is d
 
@@ -652,8 +660,8 @@ class TestDocument(unittest.TestCase):
         curdoc_from_cb = []
         def cb():
             curdoc_from_cb.append(curdoc())
-        callback = d.add_next_tick_callback(cb)
-        callback.callback()
+        callback_obj = d.add_next_tick_callback(cb)
+        callback_obj.callback()
         assert len(curdoc_from_cb) == 1
         assert curdoc_from_cb[0] is d
 
@@ -774,39 +782,39 @@ class TestDocument(unittest.TestCase):
                 expected = copy(new_value)
                 if 'units' not in expected:
                     expected['units'] = root1.foo_units
-                self.assertDictEqual(expected, root1.lookup('foo').serializable_value(root1))
+                assert expected == root1.lookup('foo').serializable_value(root1)
             else:
-                self.assertEqual(new_value, root1.foo)
+                assert new_value == root1.foo
         patch_test(57)
-        self.assertEqual('data', root1.foo_units)
+        assert 'data' == root1.foo_units
         patch_test(dict(value=58))
-        self.assertEqual('data', root1.foo_units)
+        assert 'data' == root1.foo_units
         patch_test(dict(value=58, units='screen'))
-        self.assertEqual('screen', root1.foo_units)
+        assert 'screen' == root1.foo_units
         patch_test(dict(value=59, units='screen'))
-        self.assertEqual('screen', root1.foo_units)
+        assert 'screen' == root1.foo_units
         patch_test(dict(value=59, units='data'))
-        self.assertEqual('data', root1.foo_units)
+        assert 'data' == root1.foo_units
         patch_test(dict(value=60, units='data'))
-        self.assertEqual('data', root1.foo_units)
+        assert 'data' == root1.foo_units
         patch_test(dict(value=60, units='data'))
-        self.assertEqual('data', root1.foo_units)
+        assert 'data' == root1.foo_units
         patch_test(61)
-        self.assertEqual('data', root1.foo_units)
+        assert 'data' == root1.foo_units
         root1.foo = "a_string" # so "woot" gets set as a string
         patch_test("woot")
-        self.assertEqual('data', root1.foo_units)
+        assert 'data' == root1.foo_units
         patch_test(dict(field="woot2"))
-        self.assertEqual('data', root1.foo_units)
+        assert 'data' == root1.foo_units
         patch_test(dict(field="woot2", units='screen'))
-        self.assertEqual('screen', root1.foo_units)
+        assert 'screen' == root1.foo_units
         patch_test(dict(field="woot3"))
-        self.assertEqual('screen', root1.foo_units)
+        assert 'screen' == root1.foo_units
         patch_test(dict(value=70))
-        self.assertEqual('screen', root1.foo_units)
+        assert 'screen' == root1.foo_units
         root1.foo = 123 # so 71 gets set as a number
         patch_test(71)
-        self.assertEqual('screen', root1.foo_units)
+        assert 'screen' == root1.foo_units
 
     def test_patch_reference_property(self):
         d = document.Document()

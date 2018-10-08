@@ -48,6 +48,12 @@ functionality.
 .. automodule:: bokeh.util.future
   :members:
 
+``bokeh.util.hex``
+------------------
+
+.. automodule:: bokeh.util.hex
+  :members:
+
 .. _bokeh.util.logconfig:
 
 ``bokeh.util.logconfig``
@@ -70,22 +76,6 @@ functionality.
 --------------------
 
 .. automodule:: bokeh.util.paths
-  :members:
-
-.. _bokeh.util.platform:
-
-``bokeh.util.platform``
------------------------
-
-.. automodule:: bokeh.util.platform
-  :members:
-
-.. _bokeh.util.plot_utils:
-
-``bokeh.util.plot_utils``
--------------------------
-
-.. automodule:: bokeh.util.plot_utils
   :members:
 
 .. _bokeh.util.serialization:
@@ -112,20 +102,20 @@ functionality.
 .. automodule:: bokeh.util.string
   :members:
 
-.. _bokeh.util.testing:
-
-``bokeh.util.testing``
-----------------------
-
-.. automodule:: bokeh.util.testing
-  :members:
-
 .. _bokeh.util.tornado:
 
 ``bokeh.util.tornado``
 ----------------------
 
 .. automodule:: bokeh.util.tornado
+  :members:
+
+  .. _bokeh.util.terminal:
+
+``bokeh.util.terminal``
+-----------------------
+
+.. automodule:: bokeh.util.terminal
   :members:
 
 .. _bokeh.util.version:

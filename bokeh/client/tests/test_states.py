@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -13,9 +13,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import pytest ; pytest
 
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -25,40 +22,10 @@ from bokeh.util.testing import verify_api ; verify_api
 # External imports
 from tornado import gen
 
-
 # Bokeh imports
 
 # Module under test
 import bokeh.client.states as bcs
-
-#-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
-
-api = {
-
-    PUBLIC: (
-
-    ), INTERNAL: (
-
-        ( 'NOT_YET_CONNECTED',            (1, 0, 0) ),
-        ( 'NOT_YET_CONNECTED.run',        (1, 0, 0) ),
-        ( 'CONNECTED_BEFORE_ACK',         (1, 0, 0) ),
-        ( 'CONNECTED_BEFORE_ACK.run',     (1, 0, 0) ),
-        ( 'CONNECTED_AFTER_ACK',          (1, 0, 0) ),
-        ( 'CONNECTED_AFTER_ACK.run',      (1, 0, 0) ),
-        ( 'DISCONNECTED',                 (1, 0, 0) ),
-        ( 'DISCONNECTED.run',             (1, 0, 0) ),
-        ( 'WAITING_FOR_REPLY',            (1, 0, 0) ),
-        ( 'WAITING_FOR_REPLY.reply.fget', (1, 0, 0) ),
-        ( 'WAITING_FOR_REPLY.reqid.fget', (1, 0, 0) ),
-        ( 'WAITING_FOR_REPLY.run',        (1, 0, 0) ),
-
-    )
-
-}
-
-Test_api = verify_api(bcs, api)
 
 #-----------------------------------------------------------------------------
 # Setup
@@ -81,11 +48,11 @@ class MockMessage(object):
     header = {'reqid': 'reqid'}
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 def test_NOT_YET_CONNECTED():
@@ -130,4 +97,8 @@ def test_WAITING_FOR_REPLY():
 
 #-----------------------------------------------------------------------------
 # Private API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Code
 #-----------------------------------------------------------------------------

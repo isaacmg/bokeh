@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -19,9 +19,7 @@ instead for standard usage.
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
-logger = logging.getLogger(__name__)
-
-from bokeh.util.api import public, internal ; public, internal
+log = logging.getLogger(__name__)
 
 #-----------------------------------------------------------------------------
 # Imports
@@ -30,6 +28,8 @@ from bokeh.util.api import public, internal ; public, internal
 # Standard library imports
 
 # External imports
+from six.moves.urllib.parse import quote_plus
+
 from tornado import gen
 from tornado.httpclient import HTTPRequest
 from tornado.ioloop import IOLoop
@@ -46,26 +46,30 @@ from .websocket import WebSocketClientConnectionWrapper
 # Globals and constants
 #-----------------------------------------------------------------------------
 
+__all__ = (
+    'ClientConnection',
+)
+
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
-@internal((1,0,0))
 class ClientConnection(object):
     ''' A Bokeh low-level class used to implement ClientSession; use ClientSession to connect to the server.
 
     '''
 
-    def __init__(self, session, websocket_url, io_loop=None):
+    def __init__(self, session, websocket_url, io_loop=None, arguments=None):
         ''' Opens a websocket connection to the server.
 
         '''
         self._url = websocket_url
         self._session = session
+        self._arguments = arguments
         self._protocol = Protocol("1.0")
         self._receiver = Receiver(self._protocol)
         self._socket = None
@@ -81,7 +85,6 @@ class ClientConnection(object):
     # Properties --------------------------------------------------------------
 
     @property
-    @internal((1,0,0))
     def connected(self):
         ''' Whether we've connected the Websocket and have exchanged initial
         handshake messages.
@@ -90,21 +93,18 @@ class ClientConnection(object):
         return isinstance(self._state, CONNECTED_AFTER_ACK)
 
     @property
-    @internal((1,0,0))
     def io_loop(self):
         ''' The Tornado ``IOLoop`` this connection is using. '''
         return self._loop
 
 
     @property
-    @internal((1,0,0))
     def url(self):
         ''' The URL of the websocket this Connection is to. '''
         return self._url
 
     # Internal methods --------------------------------------------------------
 
-    @internal((1,0,0))
     def connect(self):
         def connected_or_closed():
             # we should be looking at the same state here as the 'connected' property above, so connected
@@ -112,7 +112,6 @@ class ClientConnection(object):
             return isinstance(self._state, CONNECTED_AFTER_ACK) or isinstance(self._state, DISCONNECTED)
         self._loop_until(connected_or_closed)
 
-    @internal((1,0,0))
     def close(self, why="closed"):
         ''' Close the Websocket connection.
 
@@ -120,7 +119,6 @@ class ClientConnection(object):
         if self._socket is not None:
             self._socket.close(1000, why)
 
-    @internal((1,0,0))
     def force_roundtrip(self):
         ''' Force a round-trip request/reply to the server, sometimes needed to
         avoid race conditions. Mostly useful for testing.
@@ -134,7 +132,6 @@ class ClientConnection(object):
         '''
         self._send_request_server_info()
 
-    @internal((1,0,0))
     def loop_until_closed(self):
         ''' Execute a blocking loop that runs and exectutes event callbacks
         until the connection is closed (e.g. by hitting Ctrl-C).
@@ -154,7 +151,6 @@ class ClientConnection(object):
                 return isinstance(self._state, DISCONNECTED)
             self._loop_until(closed)
 
-    @internal((1,0,0))
     def pull_doc(self, document):
         ''' Pull a document from the server, overwriting the passed-in document
 
@@ -175,7 +171,6 @@ class ClientConnection(object):
         else:
             reply.push_to_document(document)
 
-    @internal((1,0,0))
     def push_doc(self, document):
         ''' Push a document to the server, overwriting any existing server-side doc.
 
@@ -196,7 +191,6 @@ class ClientConnection(object):
         else:
             return reply
 
-    @internal((1,0,0))
     def request_server_info(self):
         ''' Ask for information about the server.
 
@@ -209,14 +203,13 @@ class ClientConnection(object):
         return self._server_info
 
     @gen.coroutine
-    @internal((1,0,0))
     def send_message(self, message):
         if self._socket is None:
-            logger.info("We're disconnected, so not sending message %r", message)
+            log.info("We're disconnected, so not sending message %r", message)
         else:
             try:
                 sent = yield message.send(self._socket)
-                logger.debug("Sent %r [%d bytes]", message, sent)
+                log.debug("Sent %r [%d bytes]", message, sent)
             except WebSocketError as e:
                 # A thing that happens is that we detect the
                 # socket closing by getting a None from
@@ -228,7 +221,7 @@ class ClientConnection(object):
 
                 # this is just debug level because it's completely normal
                 # for it to happen when the socket shuts down.
-                logger.debug("Error sending message to server: %r", e)
+                log.debug("Error sending message to server: %r", e)
 
                 # error is almost certainly because
                 # socket is already closed, but be sure,
@@ -243,15 +236,22 @@ class ClientConnection(object):
 
     # Private methods ---------------------------------------------------------
 
+    def _versioned_url(self):
+        versioned_url = "%s?bokeh-protocol-version=1.0&bokeh-session-id=%s" % (self._url, self._session.id)
+        if self._arguments is not None:
+            for key, value in self._arguments.items():
+                versioned_url += "&{}={}".format(quote_plus(str(key)), quote_plus(str(value)))
+        return versioned_url
+
     @gen.coroutine
     def _connect_async(self):
-        versioned_url = "%s?bokeh-protocol-version=1.0&bokeh-session-id=%s" % (self._url, self._session.id)
+        versioned_url = self._versioned_url()
         request = HTTPRequest(versioned_url)
         try:
             socket = yield websocket_connect(request)
             self._socket = WebSocketClientConnectionWrapper(socket)
         except Exception as e:
-            logger.info("Failed to connect to server: %r", e)
+            log.info("Failed to connect to server: %r", e)
 
         if self._socket is None:
             yield self._transition_to_disconnected()
@@ -265,10 +265,10 @@ class ClientConnection(object):
             yield self._transition_to_disconnected()
         else:
             if message.msgtype == 'PATCH-DOC':
-                logger.debug("Got PATCH-DOC, applying to session")
+                log.debug("Got PATCH-DOC, applying to session")
                 self._session._handle_patch(message)
             else:
-                logger.debug("Ignoring %r", message)
+                log.debug("Ignoring %r", message)
             # we don't know about whatever message we got, ignore it.
             yield self._next()
 
@@ -286,13 +286,13 @@ class ClientConnection(object):
     @gen.coroutine
     def _next(self):
         if self._until_predicate is not None and self._until_predicate():
-            logger.debug("Stopping client loop in state %s due to True from %s",
+            log.debug("Stopping client loop in state %s due to True from %s",
                       self._state.__class__.__name__, self._until_predicate.__name__)
             self._until_predicate = None
             self._loop.stop()
             raise gen.Return(None)
         else:
-            logger.debug("Running state " + self._state.__class__.__name__)
+            log.debug("Running state " + self._state.__class__.__name__)
             yield self._state.run(self)
 
     @gen.coroutine
@@ -301,25 +301,25 @@ class ClientConnection(object):
             if self._socket is None:
                 raise gen.Return(None)
 
-            # logger.debug("Waiting for fragment...")
+            # log.debug("Waiting for fragment...")
             fragment = None
             try:
                 fragment = yield self._socket.read_message()
             except Exception as e:
                 # this happens on close, so debug level since it's "normal"
-                logger.debug("Error reading from socket %r", e)
-            # logger.debug("... got fragment %r", fragment)
+                log.debug("Error reading from socket %r", e)
+            # log.debug("... got fragment %r", fragment)
             if fragment is None:
                 # XXX Tornado doesn't give us the code and reason
-                logger.info("Connection closed by server")
+                log.info("Connection closed by server")
                 raise gen.Return(None)
             try:
                 message = yield self._receiver.consume(fragment)
                 if message is not None:
-                    logger.debug("Received message %r" % message)
+                    log.debug("Received message %r" % message)
                     raise gen.Return(message)
             except (MessageError, ProtocolError, ValidationError) as e:
-                logger.error("%r", e, exc_info=True)
+                log.error("%r", e, exc_info=True)
                 self.close(why="error parsing message from server")
 
     def _send_message_wait_for_reply(self, message):
@@ -366,7 +366,7 @@ class ClientConnection(object):
 
     @gen.coroutine
     def _transition(self, new_state):
-        logger.debug("transitioning to state " + new_state.__class__.__name__)
+        log.debug("transitioning to state " + new_state.__class__.__name__)
         self._state = new_state
         yield self._next()
 
@@ -379,7 +379,7 @@ class ClientConnection(object):
     def _wait_for_ack(self):
         message = yield self._pop_message()
         if message and message.msgtype == 'ACK':
-            logger.debug("Received %r", message)
+            log.debug("Received %r", message)
             yield self._transition(CONNECTED_AFTER_ACK())
         elif message is None:
             yield self._transition_to_disconnected()

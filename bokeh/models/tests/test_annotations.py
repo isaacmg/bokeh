@@ -1,11 +1,12 @@
 from __future__ import absolute_import
 import mock
+from datetime import datetime
 
 from bokeh.core.properties import field, value
 from bokeh.core.validation import check_integrity
 from bokeh.models.annotations import (
     Legend, LegendItem, ColorBar, Arrow, BoxAnnotation, Span, LabelSet, Label,
-    Title, Band, Whisker
+    Title, Band, Whisker, Slope
 )
 from bokeh.models import (
     ColumnDataSource, ArrowHead, BasicTicker, BasicTickFormatter, GlyphRenderer
@@ -253,6 +254,11 @@ def test_Label():
         prefix('border_', LINE),
         prefix('background_', FILL))
 
+def test_Label_accepts_datetime_xy():
+    obj = Label(x = datetime(2018,8,7,0,0),
+                y = datetime(2018,8,7,0,0))
+    assert obj.x == 1533600000000.0
+    assert obj.y == 1533600000000.0
 
 def test_LabelSet():
     label_set = LabelSet()
@@ -297,6 +303,25 @@ def test_LabelSet():
         prefix('border_', LINE),
         prefix('background_', FILL))
 
+def test_Slope():
+    slope = Slope()
+    assert slope.plot is None
+    assert slope.gradient is None
+    assert slope.y_intercept is None
+    assert slope.x_range_name == 'default'
+    assert slope.y_range_name == 'default'
+    assert slope.level == 'annotation'
+    check_line_properties(slope, "", 'black', 1.0)
+    check_properties_existence(slope, [
+        "plot",
+        "visible",
+        "gradient",
+        "y_intercept",
+        "x_range_name",
+        "y_range_name",
+        "level",
+    ], LINE)
+
 
 def test_Span():
     line = Span()
@@ -321,6 +346,9 @@ def test_Span():
         "render_mode"
     ], LINE)
 
+def test_Span_accepts_datetime_location():
+    obj = Span(location = datetime(2018,8,7,0,0))
+    assert obj.location == 1533600000000.0
 
 def test_Title():
     title = Title()

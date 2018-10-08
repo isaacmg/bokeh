@@ -92,6 +92,8 @@ REQUIRES = [
     'python-dateutil >=2.1',
     'Jinja2 >=2.7',
     'numpy >=1.7.1',
+    'pillow >=4.0',
+    'packaging >=16.8',
     'tornado >=4.3',
 ]
 
@@ -113,7 +115,7 @@ package_path(join(ROOT, 'bokeh', 'core', '_templates'))
 package_path(join(ROOT, 'bokeh', 'sphinxext', '_templates'))
 package_path(join(ROOT, 'bokeh', 'server', 'views'), ('.html'))
 package_path(join(ROOT, 'bokeh', 'sampledata', '_data'))
-package_files('LICENSE.txt', 'themes/*.yaml')
+package_files('LICENSE.txt', 'themes/*.yaml', 'themes/*.json')
 
 setup(
 
@@ -121,6 +123,8 @@ setup(
     name='bokeh',
     version=get_version(),
     description='Interactive plots and applications in the browser from Python',
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
     license='New BSD',
     author='Anaconda',
     author_email='info@anaconda.com',

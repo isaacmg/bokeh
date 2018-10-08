@@ -25,7 +25,7 @@
     var id = cell.output_area._bokeh_element_id;
     var server_id = cell.output_area._bokeh_server_id;
     // Clean up Bokeh references
-    if (id !== undefined) {
+    if (id != null && id in Bokeh.index) {
       Bokeh.index[id].model.document.clear();
       delete Bokeh.index[id];
     }
@@ -36,9 +36,11 @@
       cell.notebook.kernel.execute(cmd, {
         iopub: {
           output: function(msg) {
-            var element_id = msg.content.text.trim();
-            Bokeh.index[element_id].model.document.clear();
-            delete Bokeh.index[element_id];
+            var id = msg.content.text.trim();
+            if (id in Bokeh.index) {
+              Bokeh.index[id].model.document.clear();
+              delete Bokeh.index[id];
+            }
           }
         }
       });
@@ -60,10 +62,10 @@
       return
     }
 
-    var toinsert = output_area.element.find(`.${CLASS_NAME.split(' ')[0]}`);
+    var toinsert = output_area.element.find("." + CLASS_NAME.split(' ')[0]);
 
     if (output.metadata[EXEC_MIME_TYPE]["id"] !== undefined) {
-      toinsert[0].firstChild.textContent = output.data[JS_MIME_TYPE];
+      toinsert[toinsert.length - 1].firstChild.textContent = output.data[JS_MIME_TYPE];
       // store reference to embed id on output_area
       output_area._bokeh_element_id = output.metadata[EXEC_MIME_TYPE]["id"];
     }
@@ -72,7 +74,7 @@
       bk_div.innerHTML = output.data[HTML_MIME_TYPE];
       var script_attrs = bk_div.children[0].attributes;
       for (var i = 0; i < script_attrs.length; i++) {
-        toinsert[0].firstChild.setAttribute(script_attrs[i].name, script_attrs[i].value);
+        toinsert[toinsert.length - 1].firstChild.setAttribute(script_attrs[i].name, script_attrs[i].value);
       }
       // store reference to server id on output_area
       output_area._bokeh_server_id = output.metadata[EXEC_MIME_TYPE]["server_id"];
@@ -91,7 +93,7 @@
       this.keyboard_manager.register_events(toinsert);
       // Render to node
       var props = {data: data, metadata: metadata[EXEC_MIME_TYPE]};
-      render(props, toinsert[0]);
+      render(props, toinsert[toinsert.length - 1]);
       element.append(toinsert);
       return toinsert
     }

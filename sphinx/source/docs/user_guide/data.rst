@@ -61,6 +61,15 @@ plotting methods which allows you to pass a column's name as a stand in for the 
     p = figure()
     p.circle(x='x_values', y='y_values', source=source)
 
+.. note::
+    There is an implicit assumption that all the columns in a given ``ColumnDataSource``
+    all have the same length at all times. For this reason, it is usually preferable to
+    update the ``.data`` property of a data source "all at once".
+
+
+Pandas
+~~~~~~
+
 The ``data`` parameter can also be a Pandas ``DataFrame`` or ``GroupBy`` object.
 
 .. code-block:: python
@@ -68,9 +77,31 @@ The ``data`` parameter can also be a Pandas ``DataFrame`` or ``GroupBy`` object.
    source = ColumnDataSource(df)
 
 If a ``DataFrame`` is used, the CDS will have columns corresponding to the columns of
-the ``DataFrame``. If the ``DataFrame`` has a named index column, then CDS will also have
-a column with this name. However, if the index name (or any subname of a ``MultiIndex``)
-is ``None``, then the CDS will have a column generically named ``index`` for the index.
+the ``DataFrame``. The index of the ``DataFrame`` will be reset, so if the ``DataFrame``
+has a named index column, then CDS will also have a column with this name. However,
+if the index name is ``None``, then the CDS will be assigned a generic name.
+It will be ``index`` if it is available, and ``level_0`` otherwise.
+
+Pandas MultiIndex
+~~~~~~~~~~~~~~~~~
+All ``MultiIndex`` columns and indices will be flattened before forming the
+``ColumnsDataSource``. For the index, an index of tuples will be created, and the
+names of the ``MultiIndex`` joined with an underscore. The column names will also
+be joined with an underscore. For example:
+
+.. code-block:: python
+
+    df = pd.DataFrame({('a', 'b'): {('A', 'B'): 1, ('A', 'C'): 2},
+                       ('b', 'a'): {('A', 'C'): 7, ('A', 'B'): 8},
+                       ('b', 'b'): {('A', 'D'): 9, ('A', 'B'): 10}})
+    cds = ColumnDataSource(df)
+
+will result in a column named ``index`` with ``[(A, B), (A, C), (A, D)]`` and columns
+named ``a_b``, ``b_a``, and ``b_b``. This process will fail for non-string column names,
+so flatten the ``DataFrame`` manually in that case.
+
+Pandas GroupBy
+~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -79,17 +110,13 @@ is ``None``, then the CDS will have a column generically named ``index`` for the
 
 If a ``GroupBy`` object is used, the CDS will have columns corresponding to the result of
 calling ``group.describe()``. The ``describe`` method generates columns for statistical measures
-such as ``mean`` and ``count`` for all the non-grouped orginal columns. The CDS columns are
-formed by joining original column names with the computed measure. For example, if a
+such as ``mean`` and ``count`` for all the non-grouped orginal columns. The resulting ``DataFrame``
+has ``MultiIndex`` columns with the original column name and the columputed measure, so it
+will be flattened using the aforementioned scheme. For example, if a
 ``DataFrame`` has columns ``'year'`` and ``'mpg'``. Then passing ``df.groupby('year')``
 to a CDS will result in columns such as ``'mpg_mean'``
 
 Note this capability to adapt ``GroupBy`` objects may only work with Pandas ``>=0.20.0``.
-
-.. note::
-    There is an implicit assumption that all the columns in a given ``ColumnDataSource``
-    all have the same length at all times. For this reason, it is usually preferable to
-    update the ``.data`` property of a data source "all at once".
 
 Streaming
 ~~~~~~~~~
@@ -135,8 +162,94 @@ The tuples that describe patch changes are of the form:
 
 For a full example, see :bokeh-tree:`examples/howto/patch_app.py`.
 
-Filtering data with CDSView
----------------------------
+Transforming Data
+-----------------
+
+We have seen above how data can be added to a ``ColumnDataSource`` to drive
+Bokeh plots. This can include raw data or data that we explicitly transform
+ourselves, for example a column of colors created to control how the Markers
+in a scatter plot should be shaded. It is also possible to specify transforms
+that only occur in the browser. This can be useful to reduce both code (i.e.
+not having to color map data by hand) as well as the amount of data that has to
+be sent into the browser (only the raw data is sent, and colormapping occurs
+in the client).
+
+In this section we examine some of the different transform objects that are
+available.
+
+Colors
+~~~~~~
+
+To perform linear colormapping in the browser, the
+:func:`~bokeh.transform.linear_cmap` function may be used. It accepts the name
+of a ``ColumnDataSource`` column to colormap, a palette (which can be a built-in
+palette name, or an actual list of colors), and min/max values for the color
+mapping range. The result can be passed to a color property on glyphs:
+
+.. code-block:: python
+
+     fill_color=linear_cmap('counts', 'Viridis256', min=0, max=10)
+
+A complete example is shown here:
+
+.. bokeh-plot:: docs/user_guide/examples/data_transforming_colors.py
+    :source-position: above
+
+Besides :func:`~bokeh.transform.linear_cmap` there is also
+:func:`~bokeh.transform.log_cmap` to perform color mapping on a log scale, as
+well as :func:`~bokeh.transform.factor_cmap` to colormap categorical data (see
+the example below).
+
+Markers
+~~~~~~~
+
+It is also possible to map categorical data to marker types. The example
+below shows the use of :func:`~bokeh.transform.factor_mark` to display different
+markers or different categories in the input data. It also demonstrates the use
+of :func:`~bokeh.transform.factor_cmap` to colormap those same categories:
+
+.. bokeh-plot:: docs/user_guide/examples/data_transforming_markers.py
+    :source-position: above
+
+.. note::
+    The :func:`~bokeh.transform.factor_mark` transform is primarily only useful
+    with the ``scatter`` glyph method, since only the ``Scatter`` glyph can be
+    parameterized by marker type.
+
+CustomJSTransform
+~~~~~~~~~~~~~~~~~
+
+In addition to built-in transforms above, there is also a ``CustomJSTransform``
+that allows for specifying arbitary JavaScript code to perform a tranform step
+on ColumnDataSource data. Typically, the ``v_func`` (for "vectorized" function)
+is provided. (Less commonly a scalar equivalent ``func`` may also be needed).
+The ``v_func`` code should expect an array of inputs in the variable ``xs``, and
+return a JavaScript array with the transformed values:
+
+.. code-block:: python
+
+    v_func = """
+        const first = xs[0]
+        const norm = new Float64Array(xs.length)
+        for (let i = 0; i < xs.length; i++) {
+            norm[i] = xs[i] / first
+        }
+        return norm
+    """
+    normalize = CustomJSTransform(v_func=v_func)
+
+    plot.line(x='aapl_date', y=transform('aapl_close', normalize), line_width=2,
+              color='#cf3c4d', alpha=0.6,legend="Apple", source=aapl_source)
+
+The above code converts raw price data into a sequence of normalized returns
+relative to the first data point. The full result is shown below:
+
+.. bokeh-plot:: docs/user_guide/examples/data_transforming_customjs_transform.py
+    :source-position: none
+
+
+Filtering Data
+--------------
 
 It's often desirable to focus in on a portion of data that has been subsampled or filtered
 from a larger dataset. Bokeh allows you to specify a view of a data source that represents
@@ -167,26 +280,9 @@ IndexFilter
 The |IndexFilter| is the simplest filter type. It has an ``indices`` property which is a
 list of integers that are the indices of the data you want to be included in the plot.
 
-.. bokeh-plot::
+.. bokeh-plot:: docs/user_guide/examples/data_filtering_index_filter.py
     :source-position: above
 
-    from bokeh.plotting import figure, output_file, show
-    from bokeh.models import ColumnDataSource, CDSView, IndexFilter
-    from bokeh.layouts import gridplot
-
-    output_file("index_filter.html")
-
-    source = ColumnDataSource(data=dict(x=[1, 2, 3, 4, 5], y=[1, 2, 3, 4, 5]))
-    view = CDSView(source=source, filters=[IndexFilter([0, 2, 4])])
-
-    tools = ["box_select", "hover", "reset"]
-    p = figure(plot_height=300, plot_width=300, tools=tools)
-    p.circle(x="x", y="y", size=10, hover_color="red", source=source)
-
-    p_filtered = figure(plot_height=300, plot_width=300, tools=tools)
-    p_filtered.circle(x="x", y="y", size=10, hover_color="red", source=source, view=view)
-
-    show(gridplot([[p, p_filtered]]))
 
 BooleanFilter
 ~~~~~~~~~~~~~
@@ -194,28 +290,8 @@ BooleanFilter
 A |BooleanFilter| selects rows from a data source through a list of True or False values
 in its ``booleans`` property.
 
-.. bokeh-plot::
+.. bokeh-plot:: docs/user_guide/examples/data_filtering_boolean_filter.py
     :source-position: above
-
-    from bokeh.plotting import figure, output_file, show
-    from bokeh.models import ColumnDataSource, CDSView, BooleanFilter
-    from bokeh.layouts import gridplot
-
-    output_file("boolean_filter.html")
-
-    source = ColumnDataSource(data=dict(x=[1, 2, 3, 4, 5], y=[1, 2, 3, 4, 5]))
-    booleans = [True if y_val > 2 else False for y_val in source.data['y']]
-    view = CDSView(source=source, filters=[BooleanFilter(booleans)])
-
-    tools = ["box_select", "hover", "reset"]
-    p = figure(plot_height=300, plot_width=300, tools=tools)
-    p.circle(x="x", y="y", size=10, hover_color="red", source=source)
-
-    p_filtered = figure(plot_height=300, plot_width=300, tools=tools,
-                        x_range=p.x_range, y_range=p.y_range)
-    p_filtered.circle(x="x", y="y", size=10, hover_color="red", source=source, view=view)
-
-    show(gridplot([[p, p_filtered]]))
 
 GroupFilter
 ~~~~~~~~~~~
@@ -227,36 +303,14 @@ column in the |ColumnDataSource|, and ``group``, the value of the column to sele
 In the example below, ``flowers`` contains a categorical variable ``species`` which is
 either ``setosa``, ``versicolor``, or ``virginica``.
 
-.. bokeh-plot::
+.. bokeh-plot:: docs/user_guide/examples/data_filtering_group_filter.py
     :source-position: above
-
-    from bokeh.plotting import figure, output_file, show
-    from bokeh.layouts import gridplot
-    from bokeh.models import ColumnDataSource, CDSView, GroupFilter
-
-    from bokeh.sampledata.iris import flowers
-
-    output_file("group_filter.html")
-
-    source = ColumnDataSource(flowers)
-    view1 = CDSView(source=source, filters=[GroupFilter(column_name='species', group='versicolor')])
-
-    plot_size_and_tools = {'plot_height': 300, 'plot_width': 300,
-                            'tools':['box_select', 'reset', 'help']}
-
-    p1 = figure(title="Full data set", **plot_size_and_tools)
-    p1.circle(x='petal_length', y='petal_width', source=source, color='black')
-
-    p2 = figure(title="Setosa only", x_range=p1.x_range, y_range=p1.y_range, **plot_size_and_tools)
-    p2.circle(x='petal_length', y='petal_width', source=source, view=view1, color='red')
-
-    show(gridplot([[p1, p2]]))
 
 CustomJSFilter
 ~~~~~~~~~~~~~~
 
-You can also create a |CustomJSFilter| with your own functionality. To do this, use JavaScript
-or CoffeeScript to write code that returns either a list of indices or a list of
+You can also create a |CustomJSFilter| with your own functionality. To do this, use JavaScript,
+TypeScript or CoffeeScript to write code that returns either a list of indices or a list of
 booleans that represents the filtered subset. The |ColumnDataSource| that is associated
 with the |CDSView| this filter is added to will be available at render time with the
 variable ``source``.
@@ -273,7 +327,7 @@ pass in the JavaScript code as a string to the parameter ``code``:
     var indices = [];
 
     // iterate through rows of data source and see if each satisfies some constraint
-    for (var i = 0; i <= source.get_length(); i++){
+    for (var i = 0; i < source.get_length(); i++){
         if (source.data['some_column'][i] == 'some_value'){
             indices.push(true);
         } else {
@@ -296,6 +350,46 @@ use the ``from_coffeescript`` class method, which accepts the ``code`` parameter
     indices = (i for i in [0...source.get_length()] when z[i] == 'b')
     return indices
     ''')
+
+.. _userguide_data_ajax_data_source:
+
+AjaxDataSource
+--------------
+
+Bokeh server applications make it simple to update and stream data to data
+sources, but sometimes it is desirable to have similar functionality in
+standalone documents. The :class:`~bokeh.models.sources.AjaxDataSource`
+provides this cabability.
+
+The ``AjaxDataSource`` is configured with a URL to a REST endoint and a
+polling interval. In the browser, the data source will request data from the
+endpoint at the specified interval and update the data locally. Existing
+data may either be replaced entirely, or appened to (up to a configurable
+``max_size``). The endpoint that is supplied should return a JSON dict that
+matches the standard ``ColumnDataSource`` format:
+
+.. code-block:: python
+
+    {
+        'x' : [1, 2, 3, ...],
+        'y' : [9, 3, 2, ...]
+    }
+
+Otherwise, using an ``AjaxDataSource`` is identical to using a standard
+``ColumnDataSource``:
+
+.. code-block:: python
+
+    source = AjaxDataSource(data_url='http://some.api.com/data',
+                            polling_interval=100)
+
+    # Use just like a ColumnDataSource
+    p.circle('x', 'y', source=source)
+
+A full example (shown below) can be seen at
+:bokeh-tree:`examples/howto/ajax_source.py`
+
+.. image:: /_images/ajax_streaming.gif
 
 .. _userguide_data_linked_selection:
 
@@ -344,4 +438,4 @@ For more information about how to set up the data for these types of plots, see
 .. |DataTable| replace:: :class:`~bokeh.models.widgets.tables.DataTable`
 
 .. _CoffeeScript: http://coffeescript.org
-.. _PyScript documentation: http://flexx.readthedocs.org/en/stable/pyscript
+.. _PScript documentation: http://pscript.readthedocs.org

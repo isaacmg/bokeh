@@ -2,9 +2,11 @@ from __future__ import print_function
 
 import flask
 import os
+import sys
 import threading
 import time
 import webbrowser
+import tornado
 
 from tornado.wsgi import WSGIContainer
 from tornado.httpserver import HTTPServer
@@ -12,7 +14,7 @@ from tornado.ioloop import IOLoop
 
 _basedir = os.path.join("..", os.path.dirname(__file__))
 
-app = flask.Flask(__name__, static_path="/unused")
+app = flask.Flask(__name__, static_folder="/unused")
 PORT=5009
 http_server = HTTPServer(WSGIContainer(app))
 
@@ -38,12 +40,15 @@ def open_browser():
     time.sleep(0.5)
     webbrowser.open("http://localhost:%d/en/latest/index.html" % PORT, new="tab")
 
+data = {}
+
 def serve_http():
+    data['ioloop'] = IOLoop()
     http_server.listen(PORT)
     IOLoop.instance().start()
 
 def shutdown_server():
-    ioloop = IOLoop.instance()
+    ioloop = data['ioloop']
     ioloop.add_callback(ioloop.stop)
     print("Asked Server to shut down.")
 
@@ -55,6 +60,10 @@ def ui():
         pass
 
 if __name__ == "__main__":
+
+    if tornado.version_info[0] == 4:
+        print('docserver.py script requires tornado 5 or higher')
+        sys.exit(1)
 
     print("\nStarting Bokeh plot server on port %d..." % PORT)
     print("Visit http://localhost:%d/en/latest/index.html to see plots\n" % PORT)

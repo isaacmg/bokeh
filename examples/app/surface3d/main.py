@@ -1,12 +1,10 @@
 from __future__ import division
 
-from os.path import dirname, join
-
 import numpy as np
 
 from bokeh.driving import count
 from bokeh.io import curdoc
-from bokeh.models import ColumnDataSource, Div, Column
+from bokeh.models import ColumnDataSource
 
 from surface3d import Surface3d
 
@@ -18,18 +16,13 @@ yy = yy.ravel()
 
 def compute(t):
     value = np.sin(xx/50 + t/10) * np.cos(yy/50 + t/10) * 50 + 50
-    return dict(x=xx, y=yy, z=value, color=value)
+    return dict(x=xx, y=yy, z=value)
 
 source = ColumnDataSource(data=compute(0))
 
-content_filename = join(dirname(__file__), "description.html")
+surface = Surface3d(x="x", y="y", z="z", data_source=source)
 
-description = Div(text=open(content_filename).read(),
-                  render_as_text=False, width=600)
-
-surface = Surface3d(x="x", y="y", z="z", color="color", data_source=source)
-
-curdoc().add_root(Column(description, surface))
+curdoc().add_root(surface)
 
 @count()
 def update(t):

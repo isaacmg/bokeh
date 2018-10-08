@@ -1,9 +1,8 @@
 {expect} = require "chai"
-utils = require "../../utils"
 sinon = require "sinon"
 
-{CustomJS} = utils.require("models/callbacks/customjs")
-{Range1d} = utils.require("models/ranges/range1d")
+{CustomJS} = require("models/callbacks/customjs")
+{Range1d} = require("models/ranges/range1d")
 
 describe "range1d module", ->
 
@@ -84,6 +83,14 @@ describe "range1d module", ->
     it "should have max = -1.1", ->
       expect(r.max).to.be.equal -1.1
 
+  describe "should not be reversed", ->
+    r = new Range1d({start: 10, end: 20})
+    expect(r.is_reversed).to.be.equal false
+
+  describe "should be reversed", ->
+    r = new Range1d({start: 20, end: 10})
+    expect(r.is_reversed).to.be.equal true
+
   describe "reset", ->
 
     it "should reset to initial values", ->
@@ -93,6 +100,24 @@ describe "range1d module", ->
       r.reset()
       expect(r.start).to.be.equal 10
       expect(r.end).to.be.equal 20
+
+    it "should reset to explicit reset values", ->
+      r = new Range1d({start: 10, end: 20, reset_start: 1, reset_end: 21})
+      r.end = -1.1
+      r.start = -2.1
+      r.reset()
+      expect(r.start).to.be.equal 1
+      expect(r.end).to.be.equal 21
+
+    it "should reset to overridden reset values", ->
+      r = new Range1d({start: 10, end: 20})
+      r.end = -1.1
+      r.start = -2.1
+      r.reset_start = -2.2
+      r.reset_end = -1.2
+      r.reset()
+      expect(r.start).to.be.equal -2.2
+      expect(r.end).to.be.equal -1.2
 
     it "should execute update callback once", ->
       cb = new CustomJS()

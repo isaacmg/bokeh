@@ -13,9 +13,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import pytest ; pytest
 
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -23,17 +20,12 @@ from bokeh.util.testing import verify_api ; verify_api
 # Standard library imports
 
 # External imports
-import pandas as pd
 
 # Bokeh imports
-from bokeh.util.testing import verify_all
+from bokeh._testing.util.api import verify_all
 
 # Module under test
 #import bokeh.sampledata.mtb as bsm
-
-#-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
 # Setup
@@ -44,13 +36,13 @@ ALL = (
 )
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 Test___all__ = pytest.mark.sampledata(verify_all("bokeh.sampledata.mtb", ALL))
 
 @pytest.mark.sampledata
-def test_obiszow_mtb_xcm():
+def test_obiszow_mtb_xcm(pd):
     import bokeh.sampledata.mtb as bsm
     assert isinstance(bsm.obiszow_mtb_xcm, pd.DataFrame)
 
@@ -58,7 +50,7 @@ def test_obiszow_mtb_xcm():
     assert len(bsm.obiszow_mtb_xcm) == 978
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------

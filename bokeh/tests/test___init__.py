@@ -13,9 +13,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import pytest ; pytest
 
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -23,12 +20,14 @@ from bokeh.util.testing import verify_api ; verify_api
 # Standard library imports
 from os.path import dirname, join
 from shutil import copy
+import warnings
 
 # External imports
 from six import string_types
 
 # Bokeh imports
-from bokeh.util.testing import verify_all
+from bokeh._testing.util.api import verify_all
+from bokeh.util.warnings import BokehDeprecationWarning, BokehUserWarning
 
 # Module under test
 import bokeh as b
@@ -44,7 +43,7 @@ ALL =  (
 )
 
 _LICENSE = """\
-Copyright (c) 2012, Anaconda, Inc.
+Copyright (c) 2012 - 2018, Anaconda, Inc., and Bokeh Contributors
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -76,7 +75,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 Test___all__ = verify_all(b, ALL)
@@ -98,3 +97,17 @@ def test_license(capsys):
     b.license()
     out, err = capsys.readouterr()
     assert out == _LICENSE
+
+class TestWarnings(object):
+    @pytest.mark.parametrize('cat', (BokehDeprecationWarning, BokehUserWarning))
+    def test_bokeh_custom(self, cat):
+        r = warnings.formatwarning("message", cat, "line", "lineno")
+        assert r == "%s: %s\n" %(cat.__name__, "message")
+
+    def test_general_default(self):
+        r = warnings.formatwarning("message", RuntimeWarning, "line", "lineno")
+        assert r == "line:lineno: RuntimeWarning: message\n"
+
+    def test_filters(self):
+        assert ('always', None, BokehUserWarning, None, 0) in warnings.filters
+        assert ('always', None, BokehDeprecationWarning, None, 0) in warnings.filters

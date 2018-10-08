@@ -47,7 +47,11 @@ class FixedTicker(ContinuousTicker):
     '''
 
     ticks = Seq(Float, default=[], help="""
-    List of tick locations.
+    List of major tick locations.
+    """)
+
+    minor_ticks = Seq(Float, default=[], help="""
+    List of minor tick locations.
     """)
 
 class AdaptiveTicker(ContinuousTicker):
@@ -115,6 +119,8 @@ class DaysTicker(SingleIntervalTicker):
     days = Seq(Int, default=[], help="""
     The intervals of days to use.
     """)
+
+    num_minor_ticks = Override(default=0)
 
 class MonthsTicker(SingleIntervalTicker):
     ''' Generate ticks spaced apart by specific, even multiples of months.

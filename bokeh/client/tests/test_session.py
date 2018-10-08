@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -12,9 +12,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import pytest ; pytest
-
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
 
 #-----------------------------------------------------------------------------
 # Imports
@@ -32,43 +29,11 @@ from six import string_types
 import bokeh.client.session as bcs
 
 #-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
-
-api = {
-
-    PUBLIC: (
-
-        ( 'pull_session',                      (1, 0, 0) ),
-        ( 'push_session',                      (1, 0, 0) ),
-        ( 'show_session',                      (1, 0, 0) ),
-        ( 'ClientSession',                     (1, 0, 0) ),
-        ( 'ClientSession.connected.fget',      (1, 0, 0) ),
-        ( 'ClientSession.document.fget',       (1, 0, 0) ),
-        ( 'ClientSession.id.fget',             (1, 0, 0) ),
-        ( 'ClientSession.connect',             (1, 0, 0) ),
-        ( 'ClientSession.close',               (1, 0, 0) ),
-        ( 'ClientSession.force_roundtrip',     (1, 0, 0) ),
-        ( 'ClientSession.loop_until_closed',   (1, 0, 0) ),
-        ( 'ClientSession.pull',                (1, 0, 0) ),
-        ( 'ClientSession.push',                (1, 0, 0) ),
-        ( 'ClientSession.request_server_info', (1, 0, 0) ),
-        ( 'ClientSession.show',                (1, 0, 0) ),
-
-    ), INTERNAL: (
-
-    )
-
-}
-
-Test_api = verify_api(bcs, api)
-
-#-----------------------------------------------------------------------------
 # Setup
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 def test_module_docstring_warning():
@@ -86,6 +51,7 @@ class Test_ClientSession(object):
         s = bcs.ClientSession()
         assert s.connected == False
         assert s.document is None
+        assert s._connection._arguments is None
         assert isinstance(s.id, string_types)
         assert len(s.id) == 44
 
@@ -93,12 +59,14 @@ class Test_ClientSession(object):
         s = bcs.ClientSession("sid")
         assert s.connected == False
         assert s.document is None
+        assert s._connection._arguments is None
         assert s.id == "sid"
 
     def test_creation_with_ws_url(self):
         s = bcs.ClientSession(websocket_url="wsurl")
         assert s.connected == False
         assert s.document is None
+        assert s._connection._arguments is None
         assert s._connection.url == "wsurl"
         assert isinstance(s.id, string_types)
         assert len(s.id) == 44
@@ -107,8 +75,16 @@ class Test_ClientSession(object):
         s = bcs.ClientSession(io_loop="io_loop")
         assert s.connected == False
         assert s.document is None
+        assert s._connection._arguments is None
         assert s._connection.io_loop == "io_loop"
         assert isinstance(s.id, string_types)
+        assert len(s.id) == 44
+
+    def test_creation_with_arguments(self):
+        s = bcs.ClientSession(arguments="args")
+        assert s.connected == False
+        assert s.document is None
+        assert s._connection._arguments == "args"
         assert len(s.id) == 44
 
     @patch("bokeh.client.connection.ClientConnection.connect")
@@ -123,6 +99,14 @@ class Test_ClientSession(object):
     def test_close(self, mock_close):
         s = bcs.ClientSession()
         s.close()
+        assert mock_close.call_count == 1
+        assert mock_close.call_args[0] == ("closed",)
+        assert mock_close.call_args[1] == {}
+
+    @patch("bokeh.client.connection.ClientConnection.close")
+    def test_context_manager(self, mock_close):
+        with bcs.ClientSession() as session:
+            assert isinstance(session, bcs.ClientSession)
         assert mock_close.call_count == 1
         assert mock_close.call_args[0] == ("closed",)
         assert mock_close.call_args[1] == {}
@@ -176,9 +160,13 @@ class Test_ClientSession(object):
         assert mock_request_server_info.call_args[1] == {}
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
 # Private API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Code
 #-----------------------------------------------------------------------------

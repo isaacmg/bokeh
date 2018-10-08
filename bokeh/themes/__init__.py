@@ -3,10 +3,22 @@
 '''
 from __future__ import absolute_import
 
-from os.path import join
+from os.path import dirname, realpath, join
 
 from .theme import Theme
 
-default = Theme(json={})
+_THIS_DIR = dirname(realpath(__file__))
+_FP_FMT = join(_THIS_DIR, '{0}.json')
 
-del join
+LIGHT_MINIMAL = 'light_minimal'
+DARK_MINIMAL = 'dark_minimal'
+CALIBER = 'caliber'
+
+default = Theme(json={})
+built_in_themes = {
+    LIGHT_MINIMAL: Theme(filename=_FP_FMT.format(LIGHT_MINIMAL)),
+    DARK_MINIMAL: Theme(filename=_FP_FMT.format(DARK_MINIMAL)),
+    CALIBER: Theme(filename=_FP_FMT.format(CALIBER))
+}
+
+del dirname, realpath, join

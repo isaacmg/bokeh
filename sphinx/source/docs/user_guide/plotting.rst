@@ -39,6 +39,7 @@ example plots for all of them by clicking on entries in the list below:
     * |circle_cross|
     * |circle_x|
     * |cross|
+    * |dash|
     * |diamond|
     * |diamond_cross|
     * |inverted_triangle|
@@ -92,7 +93,13 @@ accomplished with the |multi_line| glyph method:
 
 .. note::
     This glyph is unlike most other glyphs. Instead of accepting a one
-    dimensional list or array of scalar values, it accepts a "list of lists".
+    dimensional list or array of scalar values, it accepts a "list of lists"
+    for x and y positions of each line, parameters xs and ys. multi_line
+    also expects a scalar value or a list of scalers per each line for
+    parameters such as color, alpha, linewidth, etc. Similarily, a
+    ColumnDataSource may be used consisting of a "list of lists" and a
+    lists of scalars where the length of the list of scalars and length of
+    lists must match.
 
 Missing Points
 ''''''''''''''
@@ -145,6 +152,28 @@ and left and right endpoints, use the |hbar| glyph function:
     :source-position: above
 
 
+.. userguide_plotting_hex
+
+Hex Tiles
+~~~~~~~~~
+
+Bokeh can plot hexagonal tiles, which are often used for showing binned
+aggregations. The :func:`~bokeh.plotting.figure.Figure.hex_tile` method
+takes a `size` parameter to define the size of the hex grid, and
+`axial coordinates`_ to specify which tiles are present.
+
+.. bokeh-plot:: docs/user_guide/examples/plotting_hex_tile_basic.py
+    :source-position: above
+
+A more realistic example below computes counts per bin using the
+:func:`~bokeh.util.hex.hexbin` function and plots the colormapped counts:
+
+.. bokeh-plot:: docs/user_guide/examples/plotting_hex_tile_binning.py
+    :source-position: above
+
+The above code can be made even simpler by calling the :func:`~bokeh.plotting.figure.Figure.hexbin`
+method of ``Figure``.
+
 .. _userguide_plotting_patch_glyphs:
 
 Patch Glyphs
@@ -163,15 +192,21 @@ glyph from one dimensional sequences of *x* and *y* points using the
 Multiple Patches
 ''''''''''''''''
 
-Sometimes it is useful to plot multiple lines all at once. This can be
-accomplished with the |patches| glyph method:
+Sometimes it is useful to plot multiple polygonal patches all at once.
+This can be accomplished with the |patches| glyph method:
 
 .. bokeh-plot:: docs/user_guide/examples/plotting_patch_multiple.py
     :source-position: above
 
 .. note::
     This glyph is unlike most other glyphs. Instead of accepting a one
-    dimensional list or array of scalar values, it accepts a "list of lists".
+    dimensional list or array of scalar values, it accepts a "list of lists"
+    for x and y positions of each patch, parameters xs and ys. patches
+    also expects a scalar value or a list of scalers per each patch for
+    parameters such as color, alpha, linewidth, etc. Similarily, a
+    ColumnDataSource may be used consisting of a "list of lists" and a
+    lists of scalars where the length of the list of scalars and length of
+    lists must match.
 
 Missing Points
 ''''''''''''''
@@ -223,6 +258,12 @@ raw RGBA data using |image_rgba|:
 
 .. bokeh-plot:: docs/user_guide/examples/plotting_image.py
     :source-position: above
+
+The hover tool allows interactive inspection of the values specified at
+any chosen pixel. For more information on how to enable hover with
+images, please consult the hover tool section of the :ref:`tools user
+guide <userguide_tools_inspectors>`.
+
 
 .. _userguide_plotting_segments_rays:
 
@@ -325,8 +366,13 @@ Below is a an example that shows both methods of setting the range:
 .. bokeh-plot:: docs/user_guide/examples/plotting_figure_range.py
     :source-position: above
 
-Ranges can also accept a min and max property that allow you to specify the
-edges of the plot that you do not want the user to be able to pan/zoom beyond.
+Ranges also have a ``bounds`` property that allows you to specify limits of
+the plot that you do not want the user to be able to pan/zoom beyond.
+
+.. code-block:: python
+
+    # set a range using a Range1d
+    p.y_range = Range1d(0, 15, bounds=(0, None))
 
 .. _userguide_plotting_axis_types:
 
@@ -421,6 +467,8 @@ Adding Annotations
 The section on adding annotations to plots has moved.  Please see
 :ref:`userguide_annotations`
 
+.. _axial coordinates: https://www.redblobgames.com/grids/hexagons/#coordinates-axial
+
 .. |bokeh.plotting| replace:: :ref:`bokeh.plotting <bokeh.plotting>`
 .. |Figure| replace:: :class:`~bokeh.plotting.figure.Figure`
 .. |figure| replace:: :func:`~bokeh.plotting.figure`
@@ -435,6 +483,7 @@ The section on adding annotations to plots has moved.  Please see
 .. |circle_cross|      replace:: :func:`~bokeh.plotting.figure.Figure.circle_cross`
 .. |circle_x|          replace:: :func:`~bokeh.plotting.figure.Figure.circle_x`
 .. |cross|             replace:: :func:`~bokeh.plotting.figure.Figure.cross`
+.. |dash|              replace:: :func:`~bokeh.plotting.figure.Figure.dash`
 .. |diamond|           replace:: :func:`~bokeh.plotting.figure.Figure.diamond`
 .. |diamond_cross|     replace:: :func:`~bokeh.plotting.figure.Figure.diamond_cross`
 .. |ellipse|           replace:: :func:`~bokeh.plotting.figure.Figure.ellipse`

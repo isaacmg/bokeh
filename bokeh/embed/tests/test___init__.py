@@ -13,9 +13,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import pytest ; pytest
 
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -25,7 +22,7 @@ from bokeh.util.testing import verify_api ; verify_api
 # External imports
 
 # Bokeh imports
-from bokeh.util.testing import verify_all
+from bokeh._testing.util.api import verify_all
 
 # Module under test
 import bokeh.embed as be
@@ -35,16 +32,16 @@ import bokeh.embed as be
 #-----------------------------------------------------------------------------
 
 ALL = (
-    'autoload_server',
     'autoload_static',
     'components',
     'file_html',
+    'json_item',
     'server_document',
     'server_session',
 )
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 Test___all__ = verify_all(be, ALL)

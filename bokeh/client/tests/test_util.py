@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -12,9 +12,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import pytest ; pytest
-
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
 
 #-----------------------------------------------------------------------------
 # Imports
@@ -30,34 +27,15 @@ from bokeh.util.testing import verify_api ; verify_api
 import bokeh.client.util as bcu
 
 #-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
-
-api = {
-
-    PUBLIC: (
-
-    ), INTERNAL: (
-
-        ( 'server_url_for_websocket_url', (1, 0, 0) ),
-        ( 'websocket_url_for_server_url', (1, 0, 0) ),
-
-    )
-
-}
-
-Test_api = verify_api(bcu, api)
-
-#-----------------------------------------------------------------------------
 # Setup
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 class Test_server_url_for_websocket_url(object):
@@ -94,4 +72,8 @@ class Test_websocket_url_for_server_url(object):
 
 #-----------------------------------------------------------------------------
 # Private API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Code
 #-----------------------------------------------------------------------------

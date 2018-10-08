@@ -1,3 +1,10 @@
+#-----------------------------------------------------------------------------
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
+#
+# Powered by the Bokeh Development Team.
+#
+# The full license is in the file LICENSE.txt, distributed with this software.
+#-----------------------------------------------------------------------------
 ''' Provide a Bokeh Application Handler to build up documents by running
 the code from Python script (``.py``) files.
 
@@ -26,9 +33,42 @@ The a ``ScriptHandler`` configured with this script will modify new Bokeh
 Documents by adding an empty plot with a title taken from ``args``.
 
 '''
-from __future__ import absolute_import, print_function
 
+#-----------------------------------------------------------------------------
+# Boilerplate
+#-----------------------------------------------------------------------------
+from __future__ import absolute_import, division, print_function, unicode_literals
+
+import logging
+log = logging.getLogger(__name__)
+
+#-----------------------------------------------------------------------------
+# Imports
+#-----------------------------------------------------------------------------
+
+# Standard library imports
+
+# External imports
+import six
+
+# Bokeh imports
 from .code import CodeHandler
+
+#-----------------------------------------------------------------------------
+# Globals and constants
+#-----------------------------------------------------------------------------
+
+__all__ = (
+    'ScriptHandler',
+)
+
+#-----------------------------------------------------------------------------
+# General API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Dev API
+#-----------------------------------------------------------------------------
 
 class ScriptHandler(CodeHandler):
     ''' Modify Bokeh documents by executing code from Python scripts.
@@ -50,7 +90,26 @@ class ScriptHandler(CodeHandler):
             raise ValueError('Must pass a filename to ScriptHandler')
         filename = kwargs['filename']
 
-        with open(filename, 'r') as f:
-            kwargs['source'] = f.read()
+        # For Python 3, encoding must be set to utf-8 because:
+        # - when specifying an encoding in `io.open`, it doesn't
+        #   work with Python 2,
+        # - default encoding used by Python 3 `open` statement
+        #   is not 'utf-8' on Windows platform,
+        # - Python 3 `open` ignores le `coding` comment line.
+        # See https://github.com/bokeh/bokeh/pull/8202 for details.
+        if six.PY3:
+            with open(filename, 'r', encoding='utf-8') as f:
+                kwargs['source'] = f.read()
+        else:
+            with open(filename, 'r') as f:
+                kwargs['source'] = f.read()
 
         super(ScriptHandler, self).__init__(*args, **kwargs)
+
+#-----------------------------------------------------------------------------
+# Private API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Code
+#-----------------------------------------------------------------------------

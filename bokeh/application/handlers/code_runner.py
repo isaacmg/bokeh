@@ -1,15 +1,53 @@
+#-----------------------------------------------------------------------------
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
+#
+# Powered by the Bokeh Development Team.
+#
+# The full license is in the file LICENSE.txt, distributed with this software.
+#-----------------------------------------------------------------------------
 ''' Provide a utility class ``CodeRunner`` for use by handlers that execute
 Python source code.
 
 '''
-from __future__ import absolute_import, print_function
 
-from types import ModuleType
+#-----------------------------------------------------------------------------
+# Boilerplate
+#-----------------------------------------------------------------------------
+from __future__ import absolute_import, division, print_function, unicode_literals
+
+import logging
+log = logging.getLogger(__name__)
+
+#-----------------------------------------------------------------------------
+# Imports
+#-----------------------------------------------------------------------------
+
+# Standard library imports
 import os
 import sys
 import traceback
+from types import ModuleType
 
-from bokeh.util.serialization import make_id
+# External imports
+
+# Bokeh imports
+from ...util.serialization import make_id
+
+#-----------------------------------------------------------------------------
+# Globals and constants
+#-----------------------------------------------------------------------------
+
+__all__ = (
+    'CodeRunner',
+)
+
+#-----------------------------------------------------------------------------
+# General API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Dev API
+#-----------------------------------------------------------------------------
 
 class CodeRunner(object):
     ''' Compile and run Python source code.
@@ -28,9 +66,9 @@ class CodeRunner(object):
                 as ``sys.argv`` when the code executes
 
         '''
-        self._failed = False
-        self._error = None
-        self._error_detail = None
+        self._permanent_error = None
+        self._permanent_error_detail = None
+        self.reset_run_errors()
 
         import ast
         self._code = None
@@ -39,23 +77,38 @@ class CodeRunner(object):
             nodes = ast.parse(source, path)
             self._code = compile(nodes, filename=path, mode='exec', dont_inherit=True)
         except SyntaxError as e:
-            self._failed = True
-            self._error = ("Invalid syntax in \"%s\" on line %d:\n%s" % (os.path.basename(e.filename), e.lineno, e.text))
             import traceback
-            self._error_detail = traceback.format_exc()
+            self._code = None
+            self._permanent_error = ("Invalid syntax in \"%s\" on line %d:\n%s" % (os.path.basename(e.filename), e.lineno, e.text))
+            self._permanent_error_detail = traceback.format_exc()
 
         self._path = path
         self._source = source
         self._argv = argv
         self.ran = False
 
+    # Properties --------------------------------------------------------------
+
     @property
-    def source(self):
-        ''' The configured source code that will be executed when ``run`` is
-        called.
+    def error(self):
+        ''' If code execution fails, may contain a related error message.
 
         '''
-        return self._source
+        return self._error if self._permanent_error is None else self._permanent_error
+
+    @property
+    def error_detail(self):
+        ''' If code execution fails, may contain a traceback or other details.
+
+        '''
+        return self._error_detail if self._permanent_error_detail is None else self._permanent_error_detail
+
+    @property
+    def failed(self):
+        ''' ``True`` if code execution failed
+
+        '''
+        return self._failed or self._code is None
 
     @property
     def path(self):
@@ -65,25 +118,14 @@ class CodeRunner(object):
         return self._path
 
     @property
-    def failed(self):
-        ''' ``True`` if code execution failed
+    def source(self):
+        ''' The configured source code that will be executed when ``run`` is
+        called.
 
         '''
-        return self._failed
+        return self._source
 
-    @property
-    def error(self):
-        ''' If code execution fails, may contain a related error message.
-
-        '''
-        return self._error
-
-    @property
-    def error_detail(self):
-        ''' If code execution fails, may contain a traceback or other details.
-
-        '''
-        return self._error_detail
+    # Public methods ----------------------------------------------------------
 
     def new_module(self):
         ''' Make a fresh module to run in.
@@ -92,14 +134,27 @@ class CodeRunner(object):
             Module
 
         '''
-        if self.failed:
+        self.reset_run_errors()
+
+        if self._code is None:
             return None
 
         module_name = 'bk_script_' + make_id().replace('-', '')
-        module = ModuleType(module_name)
+        module = ModuleType(str(module_name)) # str needed for py2.7
         module.__dict__['__file__'] = os.path.abspath(self._path)
 
         return module
+
+    def reset_run_errors(self):
+        ''' Clears any transient error conditions from a previous run.
+
+        Returns
+            None
+
+        '''
+        self._failed = False
+        self._error = None
+        self._error_detail = None
 
     def run(self, module, post_check):
         ''' Execute the configured source code in a module and run any post
@@ -129,7 +184,7 @@ class CodeRunner(object):
             self._failed = True
             self._error_detail = traceback.format_exc()
 
-            exc_type, exc_value, exc_traceback = sys.exc_info()
+            _exc_type, _exc_value, exc_traceback = sys.exc_info()
             filename, line_number, func, txt = traceback.extract_tb(exc_traceback)[-1]
 
             self._error = "%s\nFile \"%s\", line %d, in %s:\n%s" % (str(e), os.path.basename(filename), line_number, func, txt)
@@ -140,3 +195,11 @@ class CodeRunner(object):
             sys.path = _sys_path
             sys.argv = _sys_argv
             self.ran = True
+
+#-----------------------------------------------------------------------------
+# Private API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Code
+#-----------------------------------------------------------------------------

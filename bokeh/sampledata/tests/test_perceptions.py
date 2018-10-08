@@ -13,9 +13,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import pytest ; pytest
 
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -23,17 +20,12 @@ from bokeh.util.testing import verify_api ; verify_api
 # Standard library imports
 
 # External imports
-import pandas as pd
 
 # Bokeh imports
-from bokeh.util.testing import verify_all
+from bokeh._testing.util.api import verify_all
 
 # Module under test
 #import bokeh.sampledata.perceptions as bsp
-
-#-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
 # Setup
@@ -45,13 +37,13 @@ ALL = (
 )
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 Test___all__ = pytest.mark.sampledata(verify_all("bokeh.sampledata.perceptions", ALL))
 
 @pytest.mark.sampledata
-def test_numberly():
+def test_numberly(pd):
     import bokeh.sampledata.perceptions as bsp
     assert isinstance(bsp.numberly, pd.DataFrame)
 
@@ -59,7 +51,7 @@ def test_numberly():
     assert len(bsp.numberly) == 46
 
 @pytest.mark.sampledata
-def test_probly():
+def test_probly(pd):
     import bokeh.sampledata.perceptions as bsp
     assert isinstance(bsp.probly, pd.DataFrame)
 
@@ -67,7 +59,7 @@ def test_probly():
     assert len(bsp.probly) == 46
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------

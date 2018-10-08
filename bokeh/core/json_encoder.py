@@ -46,7 +46,7 @@ import numpy as np
 
 from ..settings import settings
 from ..util.dependencies import import_optional
-from ..util.serialization import convert_datetime_type, is_datetime_type, transform_series, transform_array
+from ..util.serialization import convert_datetime_type, convert_timedelta_type, is_datetime_type, is_timedelta_type, transform_series, transform_array
 
 pd = import_optional('pandas')
 rd = import_optional("dateutil.relativedelta")
@@ -72,12 +72,15 @@ class BokehJSONEncoder(json.JSONEncoder):
         if is_datetime_type(obj):
             return convert_datetime_type(obj)
 
+        if is_timedelta_type(obj):
+            return convert_timedelta_type(obj)
+
         # slice objects
         elif isinstance(obj, slice):
             return dict(start=obj.start, stop=obj.stop, step=obj.step)
 
         # NumPy scalars
-        elif np.issubdtype(type(obj), np.float):
+        elif np.issubdtype(type(obj), np.floating):
             return float(obj)
         elif np.issubdtype(type(obj), np.integer):
             return int(obj)
@@ -134,7 +137,7 @@ class BokehJSONEncoder(json.JSONEncoder):
         else:
             return self.transform_python_types(obj)
 
-def serialize_json(obj, pretty=False, indent=None, **kwargs):
+def serialize_json(obj, pretty=None, indent=None, **kwargs):
     ''' Return a serialized JSON representation of objects, suitable to
     send to BokehJS.
 
@@ -199,7 +202,8 @@ def serialize_json(obj, pretty=False, indent=None, **kwargs):
         if name in kwargs:
             raise ValueError("The value of %r is computed internally, overriding is not permissable." % name)
 
-    pretty = settings.pretty(pretty)
+    if pretty is None:
+        pretty = settings.pretty(False)
 
     if pretty:
         separators=(",", ": ")

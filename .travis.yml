@@ -1,6 +1,13 @@
 language: generic
 sudo: false
 dist: trusty
+addons:
+  apt:
+    packages:
+      - chromium-chromedriver
+
+before_script:
+  - ln -s /usr/lib/chromium-browser/chromedriver ~/bin/chromedriver
 
 # This does not show secret variables, but only disables a filter for accidental spillage. The filter
 # is causing problems with log trunction and TravisCI support advised to turn it off for now. See the
@@ -12,11 +19,10 @@ env:
     - BOTO_CONFIG="/tmp/nowhere"
     - secure: nLrUq2h59KN3k3hnid+Ub4RHDcVkZyrVmuMLoM6NbwKA0bwpDltaoSg5cj2dzdXKBwvv+3VP38oXLhEGLhVi7kDmyX3ICcza6Usy8zgK3s1NBgl6hFjqaJ7RjCu9OP1I42ThMTLfCQMRrYul7s74sGdZa+HfMCZcl+3Co5IzraI=
     - secure: oI7Up9HuHSBw8k9LBNC6pLEUJONj+5NeEGFpSLSVXvqPPmyXJZ4qRE/dZ/HxZp6xyBze5GLYmdXXAdhrZyNjmU1ZA0rbBLDWLXuAW8eJm5xAXZ0NRFlHMXMkwvbG9hPTOTFtxKNS4lG/Fo5AXwE4MgT5uzQS4I7HuuNkcZOoInY=
-    - secure: Nyfo1sKNXJPEbR0QF+S/Sbr1OnDl6kRfjKAXVupD83QeLJ2e6gj7R1TpucngUhDluqp2iJ/1DZDXnA9AP+xl8kordIXjEv2FYdijxKAUk3G5BVPm9n6GudsIKYNUpDOiZupZrcKoJtfpIiWOOOgn4uftI7X/ATazudUKeMNjOvQ=
-    - secure: nqoKfXZTHhJ0ieffqS+5mi5crivUeFeIgohqUaeTCnaOGI5XFMLR8rZPjhMHyFx5vNTp08pbg3Mg4i7iaQn+3dqu25HBwnfhar3TFXfOCQQLJBZstoWSGEDkJKDPwwqZrdFzw+EDxlA0tlLXvV8X0DlArYKhRcAOJF01cCJ7L1c=
-    - secure: ii7ssdfEDYtc4Ph24mVzyq7JVTkjrn/h36HZn1oZak+HuiYtVbcCjqomKj2n1kPuKJWajOwHGu7d7ymCvK4tQ37keiMRvku/Yz4HELT5IUU1hD+w7mKomc2taKKvddGnbR4I4oZe+SBfwfeQCq5/Ha+koadSQI05Aco/nLNZP3M=
     - secure: MAaYB6RV2a9tZ61Olatv52Yi4EqEh+wMkX6y20Ja1yyY3I+2sFT1NZ8ZwPFCKkDdMeSna7z4ROKk3CDMK0JkbUJrqnZgo6Fy7w6GZPcZlzUPrgH04Or0v94upMh2i0lh8wcz88VuR0i+GxnqUsP18W5AJfO/FXmU4VgDAOJfKrQ=
     - secure: IJrbxdVsjSOsZsmeD3nns1jQqcfY6J1mBbGSAtTHgRBvy1dKaejYg9jfKxaRlxjfSWXROomv0Ig+57wEAhSbxy1GBX52cklcLaY11LhaP6DHaah5eDcZe10Lk/5GxuVQmrJY0CtrrV6Jv2UB87sEqhwB0B5+ZXWOt0vdsHa4yOI=
+    - secure: pham9rB+qKZJYVBgXzg7I0rYbAo+A3dFbh4+L3rAuJtSQ7BJfYHwD3GIBFT/RAXIkjbEIPxFYygq+em7A9UdLQpcCgFcmrCWeVxCChCJ3lZBReb47i/vUuKgJT5d19vqpgGtQAxgd1gSBl4k6SwkpxWIpqtimVWq1F1JqU3U+6s=
+    - secure: Lv0s3lMsex6jASQ2/9StOV3MQVtkisIcf/Qk/or9wJqpuGWoMQUCaXkhC+8onYeOaFtznvf60nV4zEUYIWXYWEtUUmI4BjmlLvb+lhOVErqdJ+ihMH1yASHm1v7+9MjNnMGRxtAg0cTtJFbmXWHtYDMylNZ1E7X+ORpXyqer3n4=
 
 branches:
   only:
@@ -26,8 +32,8 @@ branches:
   - "/^\\d+.\\d+.\\d+$/"
 
 notifications:
-  flowdock:
-    secure: ZisceYtV2b7LWNUz0wEtiR9TRk+i8x5m/N6+Htn4IFr+bBcBi79ESO0u6DWiJA5rHt+Yq7Yf49vl7UO9HZCF+8n5B1nKpfivJKngVuMYLnhYifNmwCD7vQ8aaF9DTfOqvm2hJrHwtieX8BUGs2KWd8igt3f8LCXVWVBBvkqc2L0=
+  slack:
+    secure: UYjR/NEuFdHEXwYxaDR3DxQ6dFrHG4vziqp1Fs+EAoI21bo4r/0/ywTU6+jedlUCiahiFrUqDcX1tdM4s5Y/tnatAwZtEaHdVYTNtislN+f/EuutlE/TUeo8VliK4P47rxDGfdLBxCLes6X80q8QEaOFeIyCauoouQ/keRbrLNs=
 
 before_install:
   - export PATH="$HOME/miniconda/bin:$PATH"
@@ -38,64 +44,80 @@ before_install:
 jobs:
   include:
     - stage: build
-      install: scripts/ci/install:build
+      install: scripts/ci/install.build
       script: scripts/ci/build
 
     - stage: test
 
-      install: scripts/ci/install:test
+      install: scripts/ci/install.test
+      script: scripts/ci/test
+      addons:
+        chrome: stable
+      before_script:
+        - google-chrome-stable --no-sandbox --headless --remote-debugging-port=9222 &
+      env:
+      - GROUP=examples
+      - PYTHON=3.5
+
+    - install: scripts/ci/install.test
       script: scripts/ci/test
       env:
       - GROUP=examples
       - PYTHON=2.7
-
-    - install: scripts/ci/install:test
-      script: scripts/ci/test
-      env:
-      - GROUP=examples
-      - PYTHON=3.5
       - EXTRA_CMD=--no-js
 
-#    - install: scripts/ci/install:test
-#      script: scripts/ci/test
-#      addons:
-#        sauce_connect: true
-#      env:
-#      - GROUP=integration
-
-    - install: scripts/ci/install:test
+    - install: scripts/ci/install.test
       script: scripts/ci/test
       env:
       - GROUP=js
 
-    - install: scripts/ci/install:test
+    - install: scripts/ci/install.test
+      script: scripts/ci/test
+      env:
+      - GROUP=integration
+      - PYTHON=3.6
+
+    - install: scripts/ci/install.test
       script: scripts/ci/test
       env:
       - GROUP=unit
-      - PYTHON=2.7
+      - PYTHON=3.7
 
-    - install: scripts/ci/install:test
-      script: scripts/ci/test
-      env:
-      - GROUP=unit
-      - PYTHON=3.5
-
-    - install: scripts/ci/install:test
+    - install: scripts/ci/install.test
       script: scripts/ci/test
       env:
       - GROUP=unit
       - PYTHON=3.6
 
-    - install: scripts/ci/install:test
+    - install: scripts/ci/install.test
+      script: scripts/ci/test
+      env:
+      - GROUP=unit
+      - PYTHON=3.5
+      - TORNADO=4
+      - MINIMAL=1
+
+    - install: scripts/ci/install.test
+      script: scripts/ci/test
+      env:
+      - GROUP=unit
+      - PYTHON=2.7
+
+    - install: scripts/ci/install.test
       script: scripts/ci/test
       env:
       - GROUP=docs
 
-    - install: scripts/ci/install:test
+    - install: scripts/ci/install.test
       script: scripts/ci/test
       env:
       - GROUP=codebase
 
-    - install: scripts/ci/install:deploy
+    - install: scripts/ci/install.test
+      script: scripts/ci/test
+      env:
+      - GROUP=downstream
+
+    - install: scripts/ci/install.deploy
       stage: deploy
       script: scripts/ci/deploy

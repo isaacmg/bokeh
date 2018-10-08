@@ -17,15 +17,15 @@ namespace Anscombe {
 
   const circles = new Bokeh.ColumnDataSource({
     data: {
-      "xi"   : anscombe_quartet[0],
-      "yi"   : anscombe_quartet[1],
-      "xii"  : anscombe_quartet[2],
-      "yii"  : anscombe_quartet[3],
-      "xiii" : anscombe_quartet[4],
-      "yiii" : anscombe_quartet[5],
-      "xiv"  : anscombe_quartet[6],
-      "yiv"  : anscombe_quartet[7],
-    }
+      xi   : anscombe_quartet[0],
+      yi   : anscombe_quartet[1],
+      xii  : anscombe_quartet[2],
+      yii  : anscombe_quartet[3],
+      xiii : anscombe_quartet[4],
+      yiii : anscombe_quartet[5],
+      xiv  : anscombe_quartet[6],
+      yiv  : anscombe_quartet[7],
+    },
   });
 
   const x = Bokeh.LinAlg.linspace(-0.5, 20.5, 10);
@@ -34,7 +34,7 @@ namespace Anscombe {
   const lines = new Bokeh.ColumnDataSource({data: {x: x, y: y}});
 
   const xdr = new Bokeh.Range1d({start: -0.5, end: 20.5});
-  const ydr = Bokeh.Range1d(-0.5, 20.5);
+  const ydr = new Bokeh.Range1d({start: -0.5, end: 20.5});
 
   function make_plot(title: string, xname: string, yname: string): Bokeh.Plot {
     const plot = new Bokeh.Plot({

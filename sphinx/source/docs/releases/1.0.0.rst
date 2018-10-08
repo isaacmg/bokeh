@@ -1,0 +1,74 @@
+1.0.0 (August 2018)
+===================
+
+Bokeh Version ``1.0.0``
+
+Some of the highlights include:
+
+
+And several other bug fixes and docs additions. For full details see the
+:bokeh-tree:`CHANGELOG`.
+
+Migration Guide
+---------------
+
+New Dependencies
+~~~~~~~~~~~~~~~~
+
+"Pillow>=4.0" has been added to the list of Bokeh runtime dependencies.
+
+Pretty printing functions
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``pprint`` and ``pretty`` methods depended on IPython pretty-printing
+in order to function. Recent changes to IPython pretty-printing machinery
+made it impossible to use unless the "pretty" repr was also enabled. This
+caused ipython console to be spammed with very large amounts of output,
+making it unusable. As a result, both ``pprint`` and ``pretty`` methods have
+been removed. A "pretty" HTML repr still functions in Jupyter notebooks. This
+change is not expected to affect any normal usage.
+
+Bokeh Object IDs
+~~~~~~~~~~~~~~~~
+
+Previously Bokeh generated unique UUIDs for every Bokeh object. Starting with
+this release, Bokeh generates simple increasing integer IDs by default. You can
+set the environment variable ``BOKEH_SIMPLE_IDS=no`` to restore the previous
+behavior. The generation of simple IDs is faster than UUIDs, otherwise this
+change is not expected to affect any normal usage. However, if you are creating
+Bokeh objects for a single Document in separate processes, i.e. by using the
+``multiprocessing`` module, then you will want to turn off simple IDs. (This
+is expected to be a rare and unusual usage.)
+
+``bokeh.util.plot_utils``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``bokeh.util.plot_utils`` module has been removed. This module contained
+only private functions used internally. This change is not expected to affect
+any normal usage.
+
+``bokeh.server.application_context``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``bokeh.server.application_context`` module has been renamed to
+``bokeh.server.contexts``.  This change is not expected to affect any normal
+usage.
+
+``arguments`` parameter for ``server_session``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``server_session`` function accepted an ``arguments`` parameter that did not
+(and could not) have any actual effect. It has been removed, immediately. Since
+the parameter did not function, it is not expected that this change will affect
+any normal usage.
+
+Codebase Tests
+~~~~~~~~~~~~~~
+
+The Pytest "quality" mark has been changed to "codebase". Now to run the
+codebase tests, execute ``py.test -m codebase``. If you have installed a
+pre-commit hook to run quality tests before allowing a commit, the hook code
+should be updated as above. This change is only expected to affect those who
+are developing the Bokeh codebase.
+
+.. _project roadmap: https://bokehplots.com/pages/roadmap.html

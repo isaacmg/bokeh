@@ -1,3 +1,10 @@
+#-----------------------------------------------------------------------------
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
+#
+# Powered by the Bokeh Development Team.
+#
+# The full license is in the file LICENSE.txt, distributed with this software.
+#-----------------------------------------------------------------------------
 ''' Provide base classes for the Bokeh property system.
 
 .. note::
@@ -7,23 +14,49 @@
     anyone who is not directly developing on Bokeh's own infrastructure.
 
 '''
-from __future__ import absolute_import
+
+#-----------------------------------------------------------------------------
+# Boilerplate
+#-----------------------------------------------------------------------------
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
+#-----------------------------------------------------------------------------
+# Imports
+#-----------------------------------------------------------------------------
+
+# Standard library imports
 from copy import copy
 import types
 
+# External imports
 from six import string_types
 import numpy as np
 
+# Bokeh imports
 from ...util.dependencies import import_optional
 from ...util.string import nice_join
+from ..has_props import HasProps
 from .descriptor_factory import PropertyDescriptorFactory
 from .descriptors import BasicPropertyDescriptor
 
+#-----------------------------------------------------------------------------
+# Globals and constants
+#-----------------------------------------------------------------------------
+
 pd = import_optional('pandas')
+
+#-----------------------------------------------------------------------------
+# General API
+#-----------------------------------------------------------------------------
+
+__all__ = ()
+
+#-----------------------------------------------------------------------------
+# Dev API
+#-----------------------------------------------------------------------------
 
 class DeserializationError(Exception):
     pass
@@ -52,6 +85,9 @@ class Property(PropertyDescriptorFactory):
 
     '''
 
+    # This class attribute is controlled by external helper API for validation
+    _should_validate = True
+
     def __init__(self, default=None, help=None, serialized=True, readonly=False):
         # This is how the descriptor is created in the class declaration.
         self._serialized = False if readonly else serialized
@@ -60,9 +96,6 @@ class Property(PropertyDescriptorFactory):
         self.__doc__ = help
         self.alternatives = []
         self.assertions = []
-
-        # "fail early" when a default is invalid
-        self.validate(self._raw_default())
 
     def __str__(self):
         return self.__class__.__name__
@@ -228,13 +261,19 @@ class Property(PropertyDescriptorFactory):
         '''
         return value
 
-    def validate(self, value):
+    def validate(self, value, detail=True):
         ''' Determine whether we can set this property from this value.
 
         Validation happens before transform()
 
         Args:
             value (obj) : the value to validate against this property type
+            detail (bool, options) : whether to construct detailed exceptions
+
+                Generating detailed type validation error messages can be
+                expensive. When doing type checks internally that will not
+                escape exceptions to users, these messages can be skipped
+                by setting this value to False (default: True)
 
         Returns:
             None
@@ -256,8 +295,9 @@ class Property(PropertyDescriptorFactory):
 
         '''
         try:
-            self.validate(value)
-        except ValueError:
+            if validation_on():
+                self.validate(value, False)
+        except ValueError as e:
             return False
         else:
             return True
@@ -271,7 +311,8 @@ class Property(PropertyDescriptorFactory):
 
     def prepare_value(self, obj_or_cls, name, value):
         try:
-            self.validate(value)
+            if validation_on():
+                self.validate(value)
         except ValueError as e:
             for tp, converter in self.alternatives:
                 if tp.is_valid(value):
@@ -282,7 +323,6 @@ class Property(PropertyDescriptorFactory):
         else:
             value = self.transform(value)
 
-        from ..has_props import HasProps
         if isinstance(obj_or_cls, HasProps):
             obj = obj_or_cls
 
@@ -397,12 +437,14 @@ class PrimitiveProperty(Property):
 
     _underlying_type = None
 
-    def validate(self, value):
-        super(PrimitiveProperty, self).validate(value)
+    def validate(self, value, detail=True):
+        super(PrimitiveProperty, self).validate(value, detail)
 
         if not (value is None or isinstance(value, self._underlying_type)):
-            raise ValueError("expected a value of type %s, got %s of type %s" %
-                (nice_join([ cls.__name__ for cls in self._underlying_type ]), value, type(value).__name__))
+            msg = "" if not detail else "expected a value of type %s, got %s of type %s" % (
+                nice_join([ cls.__name__ for cls in self._underlying_type ]), value, type(value).__name__
+            )
+            raise ValueError(msg)
 
     def from_json(self, json, models=None):
         if json is None or isinstance(json, self._underlying_type):
@@ -422,3 +464,20 @@ class ContainerProperty(ParameterizedProperty):
     def _may_have_unstable_default(self):
         # all containers are mutable, so the default can be modified
         return True
+
+def validation_on():
+    ''' Check if property validation is currently active
+
+    Returns:
+        bool
+
+    '''
+    return Property._should_validate
+
+#-----------------------------------------------------------------------------
+# Private API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Code
+#-----------------------------------------------------------------------------

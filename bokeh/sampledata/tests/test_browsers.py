@@ -13,9 +13,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import pytest ; pytest
 
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -23,17 +20,12 @@ from bokeh.util.testing import verify_api ; verify_api
 # Standard library imports
 
 # External imports
-import pandas as pd
 
 # Bokeh imports
-from bokeh.util.testing import verify_all
+from bokeh._testing.util.api import verify_all
 
 # Module under test
 #import bokeh.sampledata.browsers as bsb
-
-#-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
 # Setup
@@ -45,13 +37,13 @@ ALL = (
 )
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 Test___all__ = pytest.mark.sampledata(verify_all("bokeh.sampledata.browsers", ALL))
 
 @pytest.mark.sampledata
-def test_browsers_nov_2013():
+def test_browsers_nov_2013(pd):
     import bokeh.sampledata.browsers as bsb
     assert isinstance(bsb.browsers_nov_2013, pd.DataFrame)
 
@@ -67,7 +59,7 @@ def test_icons():
     assert set(bsb.icons.keys()).issubset(set(["Chrome", "Firefox", "Safari", "Opera", "IE"]))
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------

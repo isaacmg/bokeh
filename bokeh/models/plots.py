@@ -3,15 +3,18 @@
 '''
 from __future__ import absolute_import
 
+import warnings
+
+from six import string_types
+
 from ..core.enums import Location, OutputBackend
 from ..core.properties import Bool, Dict, Enum, Include, Instance, Int, List, Override, String, Float
 from ..core.property_mixins import LineProps, FillProps
 from ..core.query import find
 from ..core.validation import error, warning
-from ..core.validation.errors import REQUIRED_RANGE, REQUIRED_SCALE, INCOMPATIBLE_SCALE_AND_RANGE
-from ..core.validation.warnings import MISSING_RENDERERS, NO_DATA_RENDERERS
-from ..util.deprecation import deprecated
-from ..util.plot_utils import _list_attr_splat, _select_helper
+from ..core.validation.errors import  BAD_EXTRA_RANGE_NAME, REQUIRED_RANGE, REQUIRED_SCALE, INCOMPATIBLE_SCALE_AND_RANGE
+from ..core.validation.warnings import MISSING_RENDERERS
+from ..model import Model
 from ..util.string import nice_join
 
 from .annotations import Legend, Title
@@ -20,33 +23,80 @@ from .glyphs import Glyph
 from .grids import Grid
 from .layouts import LayoutDOM
 from .ranges import Range, FactorRange, DataRange1d, Range1d
-from .renderers import DataRenderer, DynamicImageRenderer, GlyphRenderer, Renderer, TileRenderer
+from .renderers import GlyphRenderer, Renderer, TileRenderer
 from .scales import Scale, CategoricalScale, LinearScale, LogScale
 from .sources import DataSource, ColumnDataSource
-from .tools import Tool, Toolbar
+from .tools import Tool, Toolbar, HoverTool
 
 def _check_conflicting_kwargs(a1, a2, kwargs):
     if a1 in kwargs and a2 in kwargs:
         raise ValueError("Conflicting properties set on plot: %r and %r" % (a1, a2))
 
+class _list_attr_splat(list):
+    def __setattr__(self, attr, value):
+        for x in self:
+            setattr(x, attr, value)
+
+    def __dir__(self):
+        if len(set(type(x) for x in self)) == 1:
+            return dir(self[0])
+        else:
+            return dir(self)
+
+_LEGEND_EMPTY_WARNING = """
+You are attemptings to set `plot.legend.%s` on a plot that has zero legends added, this will have no effect.
+
+Before legend properties can be set, you must add a Legend explicitly, or call a glyph method with the 'legend' parameter set.
+"""
+
+class _legend_attr_splat(_list_attr_splat):
+    def __setattr__(self, attr, value):
+        if not len(self):
+            warnings.warn(_LEGEND_EMPTY_WARNING % attr)
+        return super(_legend_attr_splat, self).__setattr__(attr, value)
+
+def _select_helper(args, kwargs):
+    """ Allow flexible selector syntax.
+
+    Returns:
+        dict
+
+    """
+    if len(args) > 1:
+        raise TypeError("select accepts at most ONE positional argument.")
+
+    if len(args) > 0 and len(kwargs) > 0:
+        raise TypeError("select accepts EITHER a positional argument, OR keyword arguments (not both).")
+
+    if len(args) == 0 and len(kwargs) == 0:
+        raise TypeError("select requires EITHER a positional argument, OR keyword arguments.")
+
+    if args:
+        arg = args[0]
+        if isinstance(arg, dict):
+            selector = arg
+        elif isinstance(arg, string_types):
+            selector = dict(name=arg)
+        elif isinstance(arg, type) and issubclass(arg, Model):
+            selector = {"type": arg}
+        else:
+            raise TypeError("selector must be a dictionary, string or plot object.")
+
+    elif 'selector' in kwargs:
+        if len(kwargs) == 1:
+            selector = kwargs['selector']
+        else:
+            raise TypeError("when passing 'selector' keyword arg, not other keyword args may be present")
+
+    else:
+        selector = kwargs
+
+    return selector
+
 class Plot(LayoutDOM):
     ''' Model representing a plot, containing glyphs, guides, annotations.
 
     '''
-
-    def __init__(self, **kwargs):
-        '''
-
-        '''
-        _check_conflicting_kwargs("toolbar", "tools", kwargs)
-        _check_conflicting_kwargs("toolbar", "logo", kwargs)
-
-        if "toolbar" not in kwargs:
-            tools = kwargs.pop('tools', [])
-            logo = kwargs.pop('logo', 'normal')
-            kwargs["toolbar"] = Toolbar(tools=tools, logo=logo)
-
-        super(LayoutDOM, self).__init__(**kwargs)
 
     def select(self, *args, **kwargs):
         ''' Query this object and all of its references for objects that
@@ -61,6 +111,10 @@ class Plot(LayoutDOM):
 
         Keyword Arguments:
             kwargs : query dict key/values as keyword arguments
+
+        Additionally, for compatibility with ``Model.select``, a selector
+        dict may be passed as ``selector`` keyword argument, in which case
+        the value of ``kwargs['selector']`` is used for th query.
 
         For convenience, queries on just names can be made by supplying
         the ``name`` string as the single parameter:
@@ -81,7 +135,8 @@ class Plot(LayoutDOM):
 
             .. code-block:: python
 
-                # These two are equivalent
+                # These three are equivalent
+                p.select(selector={"type": HoverTool})
                 p.select({"type": HoverTool})
                 p.select(HoverTool)
 
@@ -160,7 +215,15 @@ class Plot(LayoutDOM):
 
         '''
         legends = [obj for obj in self.renderers if isinstance(obj, Legend)]
-        return _list_attr_splat(legends)
+        return _legend_attr_splat(legends)
+
+    @property
+    def hover(self):
+        ''' Splattable list of :class:`~bokeh.models.tools.HoverTool` objects.
+
+        '''
+        hovers = [obj for obj in self.tools if isinstance(obj, HoverTool)]
+        return _list_attr_splat(hovers)
 
     def _grid(self, dimension):
         grid = [obj for obj in self.renderers if isinstance(obj, Grid) and obj.dimension==dimension]
@@ -194,17 +257,6 @@ class Plot(LayoutDOM):
     @tools.setter
     def tools(self, tools):
         self.toolbar.tools = tools
-
-    @property
-    def toolbar_sticky(self):
-        deprecated("Plot.toolbar_sticky property is no longer needed, and its use is deprecated."\
-                   "In the future, accessing Plot.toolbar_sticky will result in an AttributeError.")
-        return True
-
-    @toolbar_sticky.setter
-    def toolbar_sticky(self, val):
-        deprecated("Plot.toolbar_sticky property is no longer needed, and its use is deprecated."\
-                   "In the future, accessing Plot.toolbar_sticky will result in an AttributeError.")
 
     def add_layout(self, obj, place='center'):
         ''' Adds an object to the plot in a specified place.
@@ -304,24 +356,6 @@ class Plot(LayoutDOM):
         self.renderers.append(tile_renderer)
         return tile_renderer
 
-    def add_dynamic_image(self, image_source, **kw):
-        ''' Adds new DynamicImageRenderer into the Plot.renderers
-
-        Args:
-            image_source (ImageSource) : a image source instance which contain image configuration
-
-        Keyword Arguments:
-            Additional keyword arguments are passed on as-is to the dynamic image renderer
-
-        Returns:
-            DynamicImageRenderer : DynamicImageRenderer
-
-        '''
-        deprecated((0, 12, 7), "add_dynamic_image", "GeoViews for GIS functions on top of Bokeh (http://geo.holoviews.org)")
-        image_renderer = DynamicImageRenderer(image_source=image_source, **kw)
-        self.renderers.append(image_renderer)
-        return image_renderer
-
     @error(REQUIRED_RANGE)
     def _check_required_range(self):
         missing = []
@@ -346,23 +380,25 @@ class Plot(LayoutDOM):
         y_ranges = list(self.extra_y_ranges.values())
         if self.y_range: y_ranges.append(self.y_range)
 
-        for rng in x_ranges:
-            if isinstance(rng, (DataRange1d, Range1d)) and not isinstance(self.x_scale, (LinearScale, LogScale)):
-                incompatible.append("incompatibility on x-dimension: %s, %s" %(rng, self.x_scale))
-            elif isinstance(rng, FactorRange) and not isinstance(self.x_scale, CategoricalScale):
-                incompatible.append("incompatibility on x-dimension: %s/%s" %(rng, self.x_scale))
-            # special case because CategoricalScale is a subclass of LinearScale, should be removed in future
-            if isinstance(rng, (DataRange1d, Range1d)) and isinstance(self.x_scale, CategoricalScale):
-                incompatible.append("incompatibility on x-dimension: %s, %s" %(rng, self.x_scale))
+        if self.x_scale is not None:
+            for rng in x_ranges:
+                if isinstance(rng, (DataRange1d, Range1d)) and not isinstance(self.x_scale, (LinearScale, LogScale)):
+                    incompatible.append("incompatibility on x-dimension: %s, %s" %(rng, self.x_scale))
+                elif isinstance(rng, FactorRange) and not isinstance(self.x_scale, CategoricalScale):
+                    incompatible.append("incompatibility on x-dimension: %s/%s" %(rng, self.x_scale))
+                # special case because CategoricalScale is a subclass of LinearScale, should be removed in future
+                if isinstance(rng, (DataRange1d, Range1d)) and isinstance(self.x_scale, CategoricalScale):
+                    incompatible.append("incompatibility on x-dimension: %s, %s" %(rng, self.x_scale))
 
-        for rng in y_ranges:
-            if isinstance(rng, (DataRange1d, Range1d)) and not isinstance(self.y_scale, (LinearScale, LogScale)):
-                incompatible.append("incompatibility on y-dimension: %s/%s" %(rng, self.y_scale))
-            elif isinstance(rng, FactorRange) and not isinstance(self.y_scale, CategoricalScale):
-                incompatible.append("incompatibility on y-dimension: %s/%s" %(rng, self.y_scale))
-            # special case because CategoricalScale is a subclass of LinearScale, should be removed in future
-            if isinstance(rng, (DataRange1d, Range1d)) and isinstance(self.y_scale, CategoricalScale):
-                incompatible.append("incompatibility on y-dimension: %s, %s" %(rng, self.y_scale))
+        if self.y_scale is not None:
+            for rng in y_ranges:
+                if isinstance(rng, (DataRange1d, Range1d)) and not isinstance(self.y_scale, (LinearScale, LogScale)):
+                    incompatible.append("incompatibility on y-dimension: %s/%s" %(rng, self.y_scale))
+                elif isinstance(rng, FactorRange) and not isinstance(self.y_scale, CategoricalScale):
+                    incompatible.append("incompatibility on y-dimension: %s/%s" %(rng, self.y_scale))
+                # special case because CategoricalScale is a subclass of LinearScale, should be removed in future
+                if isinstance(rng, (DataRange1d, Range1d)) and isinstance(self.y_scale, CategoricalScale):
+                    incompatible.append("incompatibility on y-dimension: %s, %s" %(rng, self.y_scale))
 
         if incompatible:
             return ", ".join(incompatible) + " [%s]" % self
@@ -372,16 +408,28 @@ class Plot(LayoutDOM):
         if len(self.renderers) == 0:
             return str(self)
 
-    @warning(NO_DATA_RENDERERS)
-    def _check_no_data_renderers(self):
-        if len(self.select(DataRenderer)) == 0:
-            return str(self)
+    @error(BAD_EXTRA_RANGE_NAME)
+    def _check_bad_extra_range_name(self):
+        msg = ""
+        for ref in self.references():
+            prop_names = ref.properties()
+            bad = []
+            if 'x_range_name' in prop_names and 'y_range_name' in prop_names:
+                if ref.x_range_name not in self.extra_x_ranges and ref.x_range_name != "default":
+                    bad.append(('x_range_name', ref.x_range_name))
+                if ref.y_range_name not in self.extra_y_ranges and ref.y_range_name != "default":
+                    bad.append(('y_range_name', ref.y_range_name))
+            if bad:
+                if msg: msg += ", "
+                msg += (", ".join("%s=%r" % (a, b) for (a,b) in bad) + " [%s]" % ref)
+        if msg:
+            return msg
 
-    x_range = Instance(Range, help="""
+    x_range = Instance(Range, default=lambda: DataRange1d(), help="""
     The (default) data range of the horizontal dimension of the plot.
     """)
 
-    y_range = Instance(Range, help="""
+    y_range = Instance(Range, default=lambda: DataRange1d(), help="""
     The (default) data range of the vertical dimension of the plot.
     """)
 
@@ -446,7 +494,7 @@ class Plot(LayoutDOM):
     setup is performed.
     """)
 
-    toolbar = Instance(Toolbar, help="""
+    toolbar = Instance(Toolbar, default=lambda: Toolbar(), help="""
     The toolbar associated with this plot which holds all the tools. It is
     automatically created with the plot if necessary.
     """)
@@ -656,6 +704,10 @@ class Plot(LayoutDOM):
         setting only sets the initial plot draw and subsequent resets. It is
         possible for tools (single axis zoom, unconstrained box zoom) to
         change the aspect ratio.
+
+    .. warning::
+        This setting is incompatible with linking dataranges across multiple
+        plots. Doing so may result in undefined behaviour.
     """)
 
     aspect_scale = Float(default=1, help="""

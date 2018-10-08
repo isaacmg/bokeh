@@ -19,8 +19,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 log = logging.getLogger(__name__)
 
-from bokeh.util.api import public, internal ; public, internal
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -42,11 +40,11 @@ __all__ = (
 )
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
@@ -62,7 +60,7 @@ def _read_data():
     with open(package_path("USHolidays.ics")) as f:
         data = ic.Calendar.from_ical(f.read())
 
-    return sorted([ (comp.get("dtstart").dt, str(comp.get("summary"))) for comp in data.walk() if comp.name == "VEVENT" ])
+    return sorted((comp.get("dtstart").dt, str(comp.get("summary"))) for comp in data.walk() if comp.name == "VEVENT")
 
 #-----------------------------------------------------------------------------
 # Code

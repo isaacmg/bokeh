@@ -1,11 +1,10 @@
 {expect} = require "chai"
 sinon = require 'sinon'
-utils = require "../../utils"
 
-{ColumnDataSource} = utils.require("models/sources/column_data_source")
-{GlyphRenderer} = utils.require("models/renderers/glyph_renderer")
-{LegendItem} = utils.require("models/annotations/legend_item")
-{logger} = utils.require("core/logging")
+{ColumnDataSource} = require("models/sources/column_data_source")
+{GlyphRenderer} = require("models/renderers/glyph_renderer")
+{LegendItem} = require("models/annotations/legend_item")
+{logger} = require("core/logging")
 
 describe "LegendItem", ->
 
@@ -90,12 +89,12 @@ describe "LegendItem", ->
     it "should return undefined if label property is null", ->
       legend_item = new LegendItem({label: null})
       field = legend_item.get_field_from_label_prop()
-      expect(field).to.be.undefined
+      expect(field).to.be.null
 
     it "should return undefined if label property is value", ->
       legend_item = new LegendItem({label: {value: 'milk'}})
       field = legend_item.get_field_from_label_prop()
-      expect(field).to.be.undefined
+      expect(field).to.be.null
 
     it "should return field if label property is field", ->
       legend_item = new LegendItem({label: {field: 'milk'}})

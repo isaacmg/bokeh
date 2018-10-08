@@ -1,18 +1,12 @@
 {expect} = require "chai"
-utils = require "../../utils"
 
-{clone} = utils.require("core/util/object")
-{Document} = utils.require("document")
-{Spacer} = utils.require("models/layouts/spacer")
+{clone} = require("core/util/object")
+{Document} = require("document")
+{Spacer} = require("models/layouts/spacer")
 
 describe "WidgetBoxView", ->
-  afterEach ->
-    utils.unstub_canvas()
-    utils.unstub_solver()
 
   beforeEach ->
-    utils.stub_canvas()
-    utils.stub_solver()
     @spacer = new Spacer()
     @spacer.attach_document(new Document())
 

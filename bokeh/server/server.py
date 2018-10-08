@@ -19,6 +19,7 @@ import atexit
 import logging
 log = logging.getLogger(__name__)
 import signal
+import sys
 
 import tornado
 from tornado.httpserver import HTTPServer
@@ -31,7 +32,7 @@ from ..resources import DEFAULT_SERVER_PORT
 from ..util.options import Options
 
 from .util import bind_sockets, create_hosts_whitelist
-from .tornado import BokehTornado
+from .tornado import BokehTornado, DEFAULT_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
 
 # This class itself is intentionally undocumented (it is used to generate
 # documentation elsewhere)
@@ -44,6 +45,10 @@ class _ServerOpts(Options):
     multi-process HTTP server.
 
     A value of 0 will auto detect number of cores.
+
+    Note that due to limitations inherent in Tornado, Windows does not support
+    ``num_procs`` values greater than one! In this case consider running
+    multiple Bokeh server instances behind a load balancer.
     """)
 
     address = String(default=None, help="""
@@ -71,6 +76,12 @@ class _ServerOpts(Options):
     Whether to have the Bokeh server override the remote IP and URI scheme
     and protocol for all requests with ``X-Real-Ip``, ``X-Forwarded-For``,
     ``X-Scheme``, ``X-Forwarded-Proto`` headers (if they are provided).
+    """)
+
+    websocket_max_message_size = Int(default=DEFAULT_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES, help="""
+    Set the Tornado ``websocket_max_message_size`` value.
+
+    NOTE: This setting has effect ONLY for Tornado>=4.5
     """)
 
 
@@ -349,6 +360,7 @@ class Server(BaseServer):
         log.info("Starting Bokeh server version %s (running on Tornado %s)" % (__version__, tornado.version))
 
         from bokeh.application.handlers.function import FunctionHandler
+        from bokeh.application.handlers.document_lifecycle import DocumentLifecycleHandler
 
         if callable(applications):
             applications = Application(FunctionHandler(applications))
@@ -359,6 +371,9 @@ class Server(BaseServer):
         for k, v in list(applications.items()):
             if callable(v):
                 applications[k] = Application(FunctionHandler(v))
+            if all(not isinstance(handler, DocumentLifecycleHandler)
+                   for handler in applications[k]._handlers):
+                applications[k].add(DocumentLifecycleHandler())
 
         opts = _ServerOpts(kwargs)
         self._port = opts.port
@@ -375,6 +390,9 @@ class Server(BaseServer):
                 "Setting both num_procs and io_loop in Server is incompatible. Use BaseServer to coordinate an explicit IOLoop and multi-process HTTPServer"
             )
 
+        if opts.num_procs > 1 and sys.platform == "win32":
+            raise RuntimeError("num_procs > 1 not supported on Windows")
+
         if http_server_kwargs is None:
             http_server_kwargs = {}
         http_server_kwargs.setdefault('xheaders', opts.use_xheaders)
@@ -383,12 +401,13 @@ class Server(BaseServer):
 
         extra_websocket_origins = create_hosts_whitelist(opts.allow_websocket_origin, self.port)
         try:
-            tornado_app = BokehTornado(applications, extra_websocket_origins=extra_websocket_origins, prefix=self.prefix, **kwargs)
+            tornado_app = BokehTornado(applications,
+                                       extra_websocket_origins=extra_websocket_origins,
+                                       prefix=self.prefix,
+                                       websocket_max_message_size_bytes=opts.websocket_max_message_size,
+                                       **kwargs)
 
-            if io_loop is not None:
-                http_server = HTTPServer(tornado_app, io_loop=io_loop, **http_server_kwargs)
-            else:
-                http_server = HTTPServer(tornado_app, **http_server_kwargs)
+            http_server = HTTPServer(tornado_app, **http_server_kwargs)
 
             http_server.start(opts.num_procs)
             http_server.add_sockets(sockets)

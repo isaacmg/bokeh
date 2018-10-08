@@ -1,3 +1,10 @@
+#-----------------------------------------------------------------------------
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
+#
+# Powered by the Bokeh Development Team.
+#
+# The full license is in the file LICENSE.txt, distributed with this software.
+#-----------------------------------------------------------------------------
 ''' Provide a Bokeh Application Handler to build up documents by running
 the code from Jupyter notebook (``.ipynb``) files.
 
@@ -9,11 +16,42 @@ notebook code is executed, the Document being modified will be available as
 ``sys.argv``.
 
 '''
-from __future__ import absolute_import, print_function
 
-from bokeh.util.dependencies import import_required
+#-----------------------------------------------------------------------------
+# Boilerplate
+#-----------------------------------------------------------------------------
+from __future__ import absolute_import, division, print_function, unicode_literals
 
+import logging
+log = logging.getLogger(__name__)
+
+#-----------------------------------------------------------------------------
+# Imports
+#-----------------------------------------------------------------------------
+
+# Standard library imports
+
+# External imports
+
+# Bokeh imports
+from ...util.dependencies import import_required
 from .code import CodeHandler
+
+#-----------------------------------------------------------------------------
+# Globals and constants
+#-----------------------------------------------------------------------------
+
+__all__ = (
+    'NotebookHandler',
+)
+
+#-----------------------------------------------------------------------------
+# General API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Dev API
+#-----------------------------------------------------------------------------
 
 class NotebookHandler(CodeHandler):
     ''' A Handler that uses code in a Jupyter notebook for modifying Bokeh
@@ -42,7 +80,15 @@ class NotebookHandler(CodeHandler):
         with open(filename) as f:
             nb = nbformat.read(f, nbformat.NO_CONVERT)
             exporter = nbconvert.PythonExporter()
-            source, meta = exporter.from_notebook_node(nb)
+            source, _ = exporter.from_notebook_node(nb)
             kwargs['source'] = source
 
         super(NotebookHandler, self).__init__(*args, **kwargs)
+
+#-----------------------------------------------------------------------------
+# Private API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Code
+#-----------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -17,8 +17,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 log = logging.getLogger(__name__)
 
-from bokeh.util.api import public, internal ; public, internal
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -33,15 +31,19 @@ from bokeh.util.api import public, internal ; public, internal
 # Globals and constants
 #-----------------------------------------------------------------------------
 
+__all__ = (
+    'server_url_for_websocket_url',
+    'websocket_url_for_server_url',
+)
+
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
-@internal((1,0,0))
 def server_url_for_websocket_url(url):
     ''' Convert an ``ws(s)`` URL for a Bokeh server into the appropriate
     ``http(s)`` URL for the websocket endpoint.
@@ -69,7 +71,6 @@ def server_url_for_websocket_url(url):
         raise ValueError("websocket URL does not end in /ws")
     return reprotocoled[:-2]
 
-@internal((1,0,0))
 def websocket_url_for_server_url(url):
     ''' Convert an ``http(s)`` URL for a Bokeh server websocket endpoint into
     the appropriate ``ws(s)`` URL

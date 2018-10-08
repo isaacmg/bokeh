@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-import os
 from os.path import abspath, dirname, join
 
 #
@@ -23,7 +22,7 @@ from os.path import abspath, dirname, join
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = '1.4'
+needs_sphinx = '1.7'
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
@@ -40,13 +39,13 @@ extensions = [
     'bokeh.sphinxext.bokeh_gallery',
     'bokeh.sphinxext.bokeh_github',
     'bokeh.sphinxext.bokeh_jinja',
-    'bokeh.sphinxext.bokeh_index_toctree',
     'bokeh.sphinxext.bokeh_model',
     'bokeh.sphinxext.bokeh_options',
     'bokeh.sphinxext.bokeh_palette',
     'bokeh.sphinxext.bokeh_palette_group',
     'bokeh.sphinxext.bokeh_plot',
     'bokeh.sphinxext.bokeh_prop',
+    'bokeh.sphinxext.bokeh_releases',
     'bokeh.sphinxext.bokeh_sitemap',
     'bokeh.sphinxext.collapsible_code_block',
 ]
@@ -67,7 +66,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Bokeh'
-copyright = '© Copyright 2015, Anaconda.'
+copyright = '© Copyright 2015-2018, Anaconda and Bokeh Contributors.'
 
 # Get the standard computed Bokeh version string to use for |version|
 # and |release|
@@ -106,6 +105,10 @@ all_versions = [x.strip() for x in reversed(f.readlines())]
 # with bokeh_plot_pyfile_include_dirs set desired folder to look for .py files
 bokeh_plot_pyfile_include_dirs = ['docs']
 
+# Whether to allow builds to succeed if a Google API key is not defined and plots
+# containing "GOOGLE_API_KEY" are processed
+bokeh_missing_google_api_key_ok = False
+
 # The reST default role (used for this markup: `text`) to use for all documents.
 #default_role = None
 
@@ -129,6 +132,9 @@ pygments_style = 'sphinx'
 # Sort members by type
 autodoc_member_order = 'groupwise'
 
+# patterns to exclude
+exclude_patterns = ['docs/releases/*']
+
 # This would more properly be done with rst_epilog but something about
 # the combination of this with the bokeh-gallery directive breaks the build
 rst_prolog = """
@@ -138,8 +144,8 @@ rst_prolog = """
 .. |HasProps|           replace:: :py:class:`~bokeh.core.has_props.HasProps`
 .. |Model|              replace:: :py:class:`~bokeh.model.Model`
 .. |Property|           replace:: :py:class:`~bokeh.core.property.bases.Property`
-.. |PropertyContainer|  replace:: :py:class:`~bokeh.core.property.containers.PropertyContainer`
 .. |PropertyDescriptor| replace:: :py:class:`~bokeh.core.property.descriptor.PropertyDescriptor`
+.. |PropertyContainer|  replace:: :py:class:`~bokeh.core.property.wrappers.PropertyContainer`
 .. |UnitsSpec|          replace:: :py:class:`~bokeh.core.properties.UnitsSpec`
 
 .. |field|              replace:: :py:func:`~bokeh.core.properties.field`
@@ -152,52 +158,37 @@ rst_prolog = """
 # a list of builtin themes.
 html_theme = 'bokeh_theme'
 html_theme_path = ['.']
-MAIN_SITE = '//bokehplots.com'
 
 html_context = {
     'SITEMAP_BASE_URL': 'https://bokeh.pydata.org/en/', # Trailing slash is needed
     'DESCRIPTION': 'Bokeh visualization library, documentation site.',
     'AUTHOR': 'Bokeh contributors',
     'VERSION': version,
-    # Nav
     'NAV': (
-        ('About', MAIN_SITE + '/pages/about-bokeh.html'),
-        ('Gallery', '/docs/gallery.html'),
-        ('Docs', '//bokeh.pydata.org/en/latest/'),
         ('Github', '//github.com/bokeh/bokeh'),
     ),
-    # Links
-    'LINKS': (
-        ('FAQs', MAIN_SITE + '/pages/faqs.html'),
-        ('Technical vision', MAIN_SITE + '/pages/technical-vision.html'),
-        ('Roadmap', MAIN_SITE + '/pages/roadmap.html'),
-        ('Citation', MAIN_SITE + '/pages/citation.html'),
-    ),
-    # About Links
     'ABOUT': (
-        ('About', MAIN_SITE + '/pages/about-bokeh.html'),
-        ('Team', MAIN_SITE + '/pages/team.html'),
-        ('Contact', MAIN_SITE + '/pages/contact.html'),
+        ('Vision and Work', 'orphan/vision'),
+        ('Team',            'orphan/team'),
+        ('Citation',        'orphan/citation'),
+        ('Contact',         'orphan/contact'),
     ),
-    # Social links
     'SOCIAL': (
-        ('Contribute', MAIN_SITE + '/pages/contribute.html'),
+        ('Contribute', 'orphan/contribute'),
         ('Mailing list', '//groups.google.com/a/anaconda.com/forum/#!forum/bokeh'),
         ('Github', '//github.com/bokeh/bokeh'),
         ('Twitter', '//twitter.com/BokehPlots'),
-        ('YouTube', '//www.youtube.com/channel/UCK0rSk29mmg4UT4bIOvPYhw')
     ),
-    # Links for the docs sub navigation
     'NAV_DOCS': (
         ('Installation', 'installation'),
         ('User Guide', 'user_guide'),
-        ('Gallery', 'gallery'),
+        ('Gallery', 'orphan/gallery'),
+        ('Tutorial', 'https://mybinder.org/v2/gh/bokeh/bokeh-notebooks/master?filepath=tutorial%2F00%20-%20Introduction%20and%20Setup.ipynb'),
         ('Reference', 'reference'),
-        ('Releases', 'releases/%s' % version),
+        ('Releases', 'releases'),
         ('Developer Guide', 'dev_guide'),
     ),
     'ALL_VERSIONS': all_versions,
-    'css_server': os.environ.get('BOKEH_DOCS_CSS_SERVER', 'bokehplots.com'),
 }
 
 # If true, links to the reST sources are added to the pages.

@@ -9,7 +9,7 @@ supplemental information to their visualizations.
 .. _userguide_plotting_titles:
 
 Titles
-~~~~~~
+------
 
 |Title| annotations allow descriptive text to be rendered around the edges
 of a plot.
@@ -60,7 +60,7 @@ visually overlap in way that is not desirable.
 .. _userguide_plotting_legends:
 
 Legends
-~~~~~~~
+-------
 
 It is possible to create |Legend| annotations easily by specifying a legend
 argument to the glyph methods, when creating a plot.
@@ -71,6 +71,9 @@ argument to the glyph methods, when creating a plot.
 
 .. bokeh-plot:: docs/user_guide/examples/plotting_legends.py
     :source-position: above
+
+Automatic Grouping
+~~~~~~~~~~~~~~~~~~
 
 It is also possible to create multiple legend items for the same glyph when
 if needed by passing a legend that is the column of the column data source.
@@ -85,6 +88,21 @@ example. Alternatively, you can not specify any legend argument, and manually
 build a :class:`~bokeh.models.annotations.Legend` by hand. You can see an
 example of this in :bokeh-tree:`examples/models/file/legends.py`:
 
+Explicit Index
+~~~~~~~~~~~~~~
+
+Other times, it may be useful to expicitly tell Bokeh which index into a
+ColumnDataSource should be used when drawing a legend item. In particuar,
+if you want to draw multiple legend items for "multi" glyphs such as
+``MultiLine`` or ``Patches``. This is accomplished by specifying an ``index``
+for the legend item as shown below.
+
+.. bokeh-plot:: docs/user_guide/examples/plotting_legends_multi_index.py
+    :source-position: above
+
+Interactive Legends
+~~~~~~~~~~~~~~~~~~~
+
 It's also possible to configure legends to be interactive, so that clicking
 or tapping on legend entries affects the corresponding glyph visibility. See
 the :ref:`userguide_interaction_legends` section of the User's Guide for more
@@ -98,7 +116,7 @@ information and examples.
 .. _userguide_plotting_color_bars:
 
 Color Bars
-~~~~~~~~~~
+----------
 
 A |ColorBar| can be created using a |ColorMapper| instance, which
 contains a color palette. Both on- and off-plot color bars are
@@ -115,11 +133,11 @@ supported; the desired location can be specified when adding the
 .. _userguide_plotting_arrows:
 
 Arrows
-~~~~~~
+------
 
 |Arrow| annotations can be used to connect glyphs and label annotations or
 to simply highlight plot regions. Arrows are compound annotations, meaning
-that their``start`` and ``end`` attributes are themselves other |ArrowHead|
+that their ``start`` and ``end`` attributes are themselves other |ArrowHead|
 annotations. By default, the |Arrow| annotation is one-sided with the ``end``
 set as an ``OpenHead``-type arrow head (an open-backed wedge style) and the
 ``start`` property set to ``None``. Double-sided arrows can be created by
@@ -149,7 +167,7 @@ and the fill properties control the interior of the arrow head (if applicable).
 .. _userguide_plotting_bands:
 
 Bands
-~~~~~
+-----
 
 A |Band| will create a dimensionally-linked "stripe", either located in data
 or screen coordinates. One common use for the Band annotation is to indicate
@@ -161,7 +179,7 @@ uncertainty related to a series of measurements.
 .. _userguide_plotting_box_annotations:
 
 Box Annotations
-~~~~~~~~~~~~~~~
+---------------
 
 A |BoxAnnotation| can be linked to either data or screen coordinates in order
 to emphasize specific plot regions. By default, box annotation dimensions (e.g.
@@ -174,7 +192,7 @@ plot area.
 .. _userguide_plotting_labels:
 
 Labels
-~~~~~~
+------
 
 Labels are text elements that can be used to annotate either glyphs or plot
 regions.
@@ -212,10 +230,21 @@ The following example illustrates the use of both:
 .. bokeh-plot:: docs/user_guide/examples/plotting_label.py
     :source-position: above
 
+.. _userguide_plotting_slope:
+
+Slopes
+------
+
+|Slope| annotations are lines which may be sloped and extend to the
+edge of the plot area.
+
+.. bokeh-plot:: docs/user_guide/examples/plotting_slope.py
+    :source-position: above
+
 .. _userguide_plotting_spans:
 
 Spans
-~~~~~
+-----
 
 |Span| annotations are lines that have a single dimension (width or height)
 and extend to the edge of the plot area.
@@ -226,7 +255,7 @@ and extend to the edge of the plot area.
 .. _userguide_plotting_whiskers:
 
 Whiskers
-~~~~~~~~
+--------
 
 A |Whisker| will create a dimensionally-linked "stem", either located in data
 or screen coordinates. Indicating error or uncertainty for measurements at a
@@ -253,6 +282,7 @@ single point would be one common use for the Whisker annotation.
 .. |Label|         replace:: :class:`~bokeh.models.annotations.Label`
 .. |LabelSet|      replace:: :class:`~bokeh.models.annotations.LabelSet`
 .. |Legend|        replace:: :class:`~bokeh.models.annotations.Legend`
+.. |Slope|         replace:: :class:`~bokeh.models.annotations.Slope`
 .. |Span|          replace:: :class:`~bokeh.models.annotations.Span`
 .. |Title|         replace:: :class:`~bokeh.models.annotations.Title`
 .. |Whisker|       replace:: :class:`~bokeh.models.annotations.Whisker`

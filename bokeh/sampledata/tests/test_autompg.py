@@ -13,9 +13,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import pytest ; pytest
 
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -23,17 +20,12 @@ from bokeh.util.testing import verify_api ; verify_api
 # Standard library imports
 
 # External imports
-import pandas as pd
 
 # Bokeh imports
-from bokeh.util.testing import verify_all
+from bokeh._testing.util.api import verify_all
 
 # Module under test
 #import bokeh.sampledata.autompg as bsa
-
-#-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
 # Setup
@@ -45,13 +37,13 @@ ALL = (
 )
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 Test___all__ = pytest.mark.sampledata(verify_all("bokeh.sampledata.autompg", ALL))
 
 @pytest.mark.sampledata
-def test_autompg():
+def test_autompg(pd):
     import bokeh.sampledata.autompg as bsa
     assert isinstance(bsa.autompg, pd.DataFrame)
 
@@ -60,7 +52,7 @@ def test_autompg():
     assert all(x in [1,2,3] for x in bsa.autompg.origin)
 
 @pytest.mark.sampledata
-def test_autompg_clean():
+def test_autompg_clean(pd):
     import bokeh.sampledata.autompg as bsa
     assert isinstance(bsa.autompg_clean, pd.DataFrame)
 
@@ -71,7 +63,7 @@ def test_autompg_clean():
         assert x not in bsa.autompg_clean.mfr
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------

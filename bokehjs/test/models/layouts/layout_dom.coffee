@@ -1,12 +1,11 @@
 {expect} = require "chai"
 sinon = require "sinon"
-utils = require "../../utils"
 
-{Strength, Variable}  = utils.require("core/layout/solver")
+{Strength, Variable}  = require("core/layout/solver")
 
-{Document} = utils.require("document")
-{LayoutDOM} = utils.require("models/layouts/layout_dom")
-{LayoutDOMView} = utils.require("models/layouts/layout_dom")
+{Document} = require("document")
+{LayoutDOM} = require("models/layouts/layout_dom")
+{LayoutDOMView} = require("models/layouts/layout_dom")
 
 dom_left = 12
 dom_top = 13
@@ -100,7 +99,6 @@ describe "LayoutDOMView", ->
       expect(spy.called).is.false
       layout_view.layout()
       expect(spy.callCount).is.equal(3)
-    ###
 
     it "should call suggest value with the model height and width if sizing_mode is fixed", ->
       layout = make_layout({sizing_mode: 'fixed', width: 22, height: 33})
@@ -129,7 +127,6 @@ describe "LayoutDOMView", ->
       expect(suggest_value.callCount).is.equal(3)
       expect(suggest_value.args[0]).to.be.deep.equal [layout._width, 222]
 
-    ###
     it "should set the value of model.width from get_width if mode is fixed and if model.width is null", ->
       layout = make_layout({sizing_mode: 'fixed', width: null})
       layout_view = new LayoutDOMView({ model: layout, parent: null })

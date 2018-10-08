@@ -5,14 +5,14 @@ logger = logging.getLogger(__name__)
 
 from six import string_types
 
-from ..core.properties import Any, Auto, Either, Enum, Int, Seq, Instance, String
-from ..core.enums import HorizontalLocation, VerticalLocation
-from ..models import Plot, Title, Tool, GraphRenderer
-from ..models import glyphs, markers
+from ..core.properties import Any, Auto, Either, Enum, Int, List, Seq, Instance, String, Tuple
+from ..core.enums import HorizontalLocation, MarkerType, VerticalLocation
+from ..models import ColumnDataSource, Plot, Title, Tool, GraphRenderer
+from ..models import glyphs as _glyphs
+from ..models import markers as _markers
 from ..models.tools import Drag, Inspection, Scroll, Tap
 from ..util.options import Options
-from ..util.string import format_docstring
-from ..util._plot_arg_helpers import _convert_responsive
+from ..transform import linear_cmap
 from .helpers import (
     _get_range, _get_scale, _process_axis_and_grid, _process_tools_arg,
     _glyph_function, _process_active_tools, _stack, _graph)
@@ -75,16 +75,27 @@ class FigureOptions(Options):
     Which tap tool should initially be active.
     """)
 
-    x_axis_type = Either(Auto, Enum("linear", "log", "datetime"), default="auto", help="""
+    x_axis_type = Either(Auto, Enum("linear", "log", "datetime", "mercator"), default="auto", help="""
     The type of the x-axis.
     """)
 
-    y_axis_type = Either(Auto, Enum("linear", "log", "datetime"), default="auto", help="""
+    y_axis_type = Either(Auto, Enum("linear", "log", "datetime", "mercator"), default="auto", help="""
     The type of the y-axis.
     """)
 
+    tooltips = Either(String, List(Tuple(String, String)), help="""
+    An optional argument to configure tooltips for the Figure. This argument
+    accepts the same values as the ``HoverTool.tooltips`` property. If a hover
+    tool is specified in the ``tools`` argument, this value will override that
+    hover tools ``tooltips`` value. If no hover tool is specified in the
+    ``tools`` argument, then passing tooltips here will cause one to be created
+    and added.
+    """)
+
 class Figure(Plot):
-    ''' A subclass of :class:`~bokeh.models.plots.Plot` that simplifies plot
+    ''' Create a new Figure for plotting.
+
+    A subclass of :class:`~bokeh.models.plots.Plot` that simplifies plot
     creation with default axes, grids, tools, etc.
 
     Figure objects have many glyph methods that can be used to draw
@@ -93,16 +104,61 @@ class Figure(Plot):
     .. hlist::
         :columns: 3
 
-{glyph_methods}
+        * :func:`~bokeh.plotting.figure.Figure.annular_wedge`
+        * :func:`~bokeh.plotting.figure.Figure.annulus`
+        * :func:`~bokeh.plotting.figure.Figure.arc`
+        * :func:`~bokeh.plotting.figure.Figure.asterisk`
+        * :func:`~bokeh.plotting.figure.Figure.bezier`
+        * :func:`~bokeh.plotting.figure.Figure.circle`
+        * :func:`~bokeh.plotting.figure.Figure.circle_cross`
+        * :func:`~bokeh.plotting.figure.Figure.circle_x`
+        * :func:`~bokeh.plotting.figure.Figure.cross`
+        * :func:`~bokeh.plotting.figure.Figure.dash`
+        * :func:`~bokeh.plotting.figure.Figure.diamond`
+        * :func:`~bokeh.plotting.figure.Figure.diamond_cross`
+        * :func:`~bokeh.plotting.figure.Figure.ellipse`
+        * :func:`~bokeh.plotting.figure.Figure.hbar`
+        * :func:`~bokeh.plotting.figure.Figure.hex`
+        * :func:`~bokeh.plotting.figure.Figure.hex_tile`
+        * :func:`~bokeh.plotting.figure.Figure.image`
+        * :func:`~bokeh.plotting.figure.Figure.image_rgba`
+        * :func:`~bokeh.plotting.figure.Figure.image_url`
+        * :func:`~bokeh.plotting.figure.Figure.inverted_triangle`
+        * :func:`~bokeh.plotting.figure.Figure.line`
+        * :func:`~bokeh.plotting.figure.Figure.multi_line`
+        * :func:`~bokeh.plotting.figure.Figure.oval`
+        * :func:`~bokeh.plotting.figure.Figure.patch`
+        * :func:`~bokeh.plotting.figure.Figure.patches`
+        * :func:`~bokeh.plotting.figure.Figure.quad`
+        * :func:`~bokeh.plotting.figure.Figure.quadratic`
+        * :func:`~bokeh.plotting.figure.Figure.ray`
+        * :func:`~bokeh.plotting.figure.Figure.rect`
+        * :func:`~bokeh.plotting.figure.Figure.segment`
+        * :func:`~bokeh.plotting.figure.Figure.square`
+        * :func:`~bokeh.plotting.figure.Figure.square_cross`
+        * :func:`~bokeh.plotting.figure.Figure.square_x`
+        * :func:`~bokeh.plotting.figure.Figure.step`
+        * :func:`~bokeh.plotting.figure.Figure.text`
+        * :func:`~bokeh.plotting.figure.Figure.triangle`
+        * :func:`~bokeh.plotting.figure.Figure.vbar`
+        * :func:`~bokeh.plotting.figure.Figure.wedge`
+        * :func:`~bokeh.plotting.figure.Figure.x`
+
+    As well as a scatter function that can be parameterized by marker type:
+
+    * :func:`~bokeh.plotting.figure.Figure.scatter`
 
     There are also two specialized methods for stacking bars:
-    :func:`~bokeh.plotting.figure.Figure.hbar_stack` and
-    :func:`~bokeh.plotting.figure.Figure.vbar_stack`
 
+    * :func:`~bokeh.plotting.figure.Figure.hbar_stack`
+    * :func:`~bokeh.plotting.figure.Figure.vbar_stack`
 
-    In addition to all the Bokeh model property attributes documented below,
-    the ``Figure`` initializer also accepts the following options, which can
-    help simplify configuration:
+    And one specialized method for making simple hexbin plots:
+
+    * :func:`~bokeh.plotting.figure.Figure.hexbin`
+
+    In addition to all the ``Figure`` property attributes, the following
+    options are also accepted:
 
     .. bokeh-options:: FigureOptions
         :module: bokeh.plotting.figure
@@ -123,12 +179,6 @@ class Figure(Plot):
         if 'width' in kw:
             kw['plot_width'] = kw.pop('width')
 
-        if 'responsive' in kw and 'sizing_mode' in kw:
-            raise ValueError("Figure called with both 'responsive' and 'sizing_mode' supplied, supply only one")
-        if 'responsive' in kw:
-            kw['sizing_mode'] = _convert_responsive(kw['responsive'])
-            del kw['responsive']
-
         opts = FigureOptions(kw)
 
         title = kw.get("title", None)
@@ -146,13 +196,13 @@ class Figure(Plot):
         _process_axis_and_grid(self, opts.x_axis_type, opts.x_axis_location, opts.x_minor_ticks, opts.x_axis_label, self.x_range, 0)
         _process_axis_and_grid(self, opts.y_axis_type, opts.y_axis_location, opts.y_minor_ticks, opts.y_axis_label, self.y_range, 1)
 
-        tool_objs, tool_map = _process_tools_arg(self, opts.tools)
+        tool_objs, tool_map = _process_tools_arg(self, opts.tools, opts.tooltips)
         self.add_tools(*tool_objs)
         _process_active_tools(self.toolbar, tool_map, opts.active_drag, opts.active_inspect, opts.active_scroll, opts.active_tap)
 
-    annular_wedge = _glyph_function(glyphs.AnnularWedge)
+    annular_wedge = _glyph_function(_glyphs.AnnularWedge)
 
-    annulus = _glyph_function(glyphs.Annulus, """
+    annulus = _glyph_function(_glyphs.Annulus, """
 Examples:
 
         .. bokeh-plot::
@@ -168,9 +218,9 @@ Examples:
 
     """)
 
-    arc = _glyph_function(glyphs.Arc)
+    arc = _glyph_function(_glyphs.Arc)
 
-    asterisk = _glyph_function(markers.Asterisk, """
+    asterisk = _glyph_function(_markers.Asterisk, """
 Examples:
 
     .. bokeh-plot::
@@ -185,9 +235,9 @@ Examples:
 
 """)
 
-    bezier = _glyph_function(glyphs.Bezier)
+    bezier = _glyph_function(_glyphs.Bezier)
 
-    circle = _glyph_function(markers.Circle, """
+    circle = _glyph_function(_markers.Circle, """
 .. note::
     Only one of ``size`` or ``radius`` should be provided. Note that ``radius``
     defaults to data units.
@@ -206,7 +256,7 @@ Examples:
 
 """)
 
-    circle_cross = _glyph_function(markers.CircleCross, """
+    circle_cross = _glyph_function(_markers.CircleCross, """
 Examples:
 
     .. bokeh-plot::
@@ -222,7 +272,7 @@ Examples:
 
 """)
 
-    circle_x = _glyph_function(markers.CircleX, """
+    circle_x = _glyph_function(_markers.CircleX, """
 Examples:
 
     .. bokeh-plot::
@@ -238,7 +288,7 @@ Examples:
 
 """)
 
-    cross = _glyph_function(markers.Cross, """
+    cross = _glyph_function(_markers.Cross, """
 Examples:
 
     .. bokeh-plot::
@@ -254,7 +304,23 @@ Examples:
 
 """)
 
-    diamond = _glyph_function(markers.Diamond, """
+    dash = _glyph_function(_markers.Dash, """
+Examples:
+
+    .. bokeh-plot::
+        :source-position: above
+
+        from bokeh.plotting import figure, output_file, show
+
+        plot = figure(plot_width=300, plot_height=300)
+        plot.dash(x=[1, 2, 3], y=[1, 2, 3], size=[10,20,25],
+                  color="#99D594", line_width=2)
+
+        show(plot)
+
+""")
+
+    diamond = _glyph_function(_markers.Diamond, """
 Examples:
 
     .. bokeh-plot::
@@ -270,7 +336,7 @@ Examples:
 
 """)
 
-    diamond_cross = _glyph_function(markers.DiamondCross, """
+    diamond_cross = _glyph_function(_markers.DiamondCross, """
 Examples:
 
     .. bokeh-plot::
@@ -286,7 +352,7 @@ Examples:
 
 """)
 
-    hbar = _glyph_function(glyphs.HBar, """
+    hbar = _glyph_function(_glyphs.HBar, """
 Examples:
 
     .. bokeh-plot::
@@ -300,7 +366,7 @@ Examples:
         show(plot)
 """)
 
-    ellipse = _glyph_function(glyphs.Ellipse, """
+    ellipse = _glyph_function(_glyphs.Ellipse, """
 Examples:
 
     .. bokeh-plot::
@@ -316,7 +382,37 @@ Examples:
 
 """)
 
-    image = _glyph_function(glyphs.Image, """
+    hex = _glyph_function(_markers.Hex, """
+Examples:
+
+    .. bokeh-plot::
+        :source-position: above
+
+        from bokeh.plotting import figure, output_file, show
+
+        plot = figure(plot_width=300, plot_height=300)
+        plot.hex(x=[1, 2, 3], y=[1, 2, 3], size=[10,20,30], color="#74ADD1")
+
+        show(plot)
+
+""")
+
+    hex_tile = _glyph_function(_glyphs.HexTile, """
+Examples:
+
+    .. bokeh-plot::
+        :source-position: above
+
+        from bokeh.plotting import figure, output_file, show
+
+        plot = figure(plot_width=300, plot_height=300, match_aspect=True)
+        plot.hex_tile(r=[0, 0, 1], q=[1, 2, 2], fill_color="#74ADD1")
+
+        show(plot)
+
+""")
+
+    image = _glyph_function(_glyphs.Image, """
 .. note::
     If both ``palette`` and ``color_mapper`` are passed, a ``ValueError``
     exception will be raised. If neither is passed, then the ``Greys9``
@@ -324,16 +420,16 @@ Examples:
 
 """)
 
-    image_rgba = _glyph_function(glyphs.ImageRGBA, """
+    image_rgba = _glyph_function(_glyphs.ImageRGBA, """
 .. note::
     The ``image_rgba`` method accepts images as a two-dimensional array of RGBA
     values (encoded as 32-bit integers).
 
 """)
 
-    image_url = _glyph_function(glyphs.ImageURL)
+    image_url = _glyph_function(_glyphs.ImageURL)
 
-    inverted_triangle = _glyph_function(markers.InvertedTriangle, """
+    inverted_triangle = _glyph_function(_markers.InvertedTriangle, """
 Examples:
 
     .. bokeh-plot::
@@ -348,7 +444,7 @@ Examples:
 
 """)
 
-    line = _glyph_function(glyphs.Line, """
+    line = _glyph_function(_glyphs.Line, """
 Examples:
 
     .. bokeh-plot::
@@ -363,7 +459,7 @@ Examples:
 
 """)
 
-    multi_line = _glyph_function(glyphs.MultiLine, """
+    multi_line = _glyph_function(_glyphs.MultiLine, """
 .. note::
     For this glyph, the data is not simply an array of scalars, it is an
     "array of arrays".
@@ -383,7 +479,7 @@ Examples:
 
 """)
 
-    oval = _glyph_function(glyphs.Oval, """
+    oval = _glyph_function(_glyphs.Oval, """
 Examples:
 
     .. bokeh-plot::
@@ -399,7 +495,7 @@ Examples:
 
 """)
 
-    patch = _glyph_function(glyphs.Patch, """
+    patch = _glyph_function(_glyphs.Patch, """
 Examples:
 
     .. bokeh-plot::
@@ -414,7 +510,7 @@ Examples:
 
 """)
 
-    patches = _glyph_function(glyphs.Patches, """
+    patches = _glyph_function(_glyphs.Patches, """
 .. note::
     For this glyph, the data is not simply an array of scalars, it is an
     "array of arrays".
@@ -434,7 +530,7 @@ Examples:
 
 """)
 
-    quad = _glyph_function(glyphs.Quad, """
+    quad = _glyph_function(_glyphs.Quad, """
 Examples:
 
     .. bokeh-plot::
@@ -450,9 +546,9 @@ Examples:
 
 """)
 
-    quadratic = _glyph_function(glyphs.Quadratic)
+    quadratic = _glyph_function(_glyphs.Quadratic)
 
-    ray = _glyph_function(glyphs.Ray, """
+    ray = _glyph_function(_glyphs.Ray, """
 Examples:
 
     .. bokeh-plot::
@@ -468,7 +564,7 @@ Examples:
 
 """)
 
-    rect = _glyph_function(glyphs.Rect, """
+    rect = _glyph_function(_glyphs.Rect, """
 Examples:
 
     .. bokeh-plot::
@@ -484,7 +580,7 @@ Examples:
 
 """)
 
-    step = _glyph_function(glyphs.Step, """
+    step = _glyph_function(_glyphs.Step, """
 Examples:
 
     .. bokeh-plot::
@@ -500,7 +596,7 @@ Examples:
 """)
 
 
-    segment = _glyph_function(glyphs.Segment, """
+    segment = _glyph_function(_glyphs.Segment, """
 Examples:
 
     .. bokeh-plot::
@@ -517,7 +613,7 @@ Examples:
 
 """)
 
-    square = _glyph_function(markers.Square, """
+    square = _glyph_function(_markers.Square, """
 Examples:
 
     .. bokeh-plot::
@@ -532,7 +628,7 @@ Examples:
 
 """)
 
-    square_cross = _glyph_function(markers.SquareCross, """
+    square_cross = _glyph_function(_markers.SquareCross, """
 Examples:
 
     .. bokeh-plot::
@@ -548,7 +644,7 @@ Examples:
 
 """)
 
-    square_x = _glyph_function(markers.SquareX, """
+    square_x = _glyph_function(_markers.SquareX, """
 Examples:
 
     .. bokeh-plot::
@@ -564,7 +660,7 @@ Examples:
 
 """)
 
-    text = _glyph_function(glyphs.Text, """
+    text = _glyph_function(_glyphs.Text, """
 .. note::
     The location and angle of the text relative to the ``x``, ``y`` coordinates
     is indicated by the alignment and baseline text properties.
@@ -574,7 +670,7 @@ Returns:
 
 """)
 
-    triangle = _glyph_function(markers.Triangle, """
+    triangle = _glyph_function(_markers.Triangle, """
 Examples:
 
     .. bokeh-plot::
@@ -590,7 +686,7 @@ Examples:
 
 """)
 
-    vbar = _glyph_function(glyphs.VBar, """
+    vbar = _glyph_function(_glyphs.VBar, """
 Examples:
 
     .. bokeh-plot::
@@ -605,7 +701,7 @@ Examples:
 
 """)
 
-    wedge = _glyph_function(glyphs.Wedge, """
+    wedge = _glyph_function(_glyphs.Wedge, """
 Examples:
 
     .. bokeh-plot::
@@ -621,7 +717,7 @@ Examples:
 
 """)
 
-    x = _glyph_function(markers.X, """
+    x = _glyph_function(_markers.X, """
 Examples:
 
     .. bokeh-plot::
@@ -638,43 +734,164 @@ Examples:
 
     # -------------------------------------------------------------------------
 
+    _scatter = _glyph_function(_markers.Scatter)
+
     def scatter(self, *args, **kwargs):
-        """ Creates a scatter plot of the given x and y items.
+        ''' Creates a scatter plot of the given x and y items.
 
         Args:
             x (str or seq[float]) : values or field names of center x coordinates
+
             y (str or seq[float]) : values or field names of center y coordinates
+
             size (str or list[float]) : values or field names of sizes in screen units
-            marker (str, optional): a valid marker_type, defaults to "circle"
+
+            marker (str, or list[str]): values or field names of marker types
+
             color (color value, optional): shorthand to set both fill and line color
+
             source (:class:`~bokeh.models.sources.ColumnDataSource`) : a user-supplied data source.
                 An attempt will be made to convert the object to :class:`~bokeh.models.sources.ColumnDataSource`
                 if needed. If none is supplied, one is created for the user automatically.
+
             **kwargs: :ref:`userguide_styling_line_properties` and :ref:`userguide_styling_fill_properties`
 
         Examples:
 
-            >>> p.scatter([1,2,3],[4,5,6], fill_color="red")
-            >>> p.scatter("data1", "data2", source=data_source, ...)
+            >>> p.scatter([1,2,3],[4,5,6], marker="square", fill_color="red")
+            >>> p.scatter("data1", "data2", marker="mtype", source=data_source, ...)
 
-        """
-        markertype = kwargs.pop("marker", "circle")
+        .. note::
+            When passing ``marker="circle"`` it is also possible to supply a
+            ``radius`` value in data-space units. When configuring marker type
+            from a data source column, *all* markers incuding circles may only
+            be configured with ``size`` in screen units.
 
-        if markertype not in _marker_types:
-            raise ValueError("Invalid marker type '%s'. Use markers() to see a list of valid marker types." % markertype)
+        '''
+        marker_type = kwargs.pop("marker", "circle")
 
-        # TODO (bev) make better when plotting.scatter is removed
-        conversions = {
-            "*": "asterisk",
-            "+": "cross",
-            "o": "circle",
-            "ox": "circle_x",
-            "o+": "circle_cross"
-        }
-        if markertype in conversions:
-            markertype = conversions[markertype]
+        if isinstance(marker_type, string_types) and marker_type in _MARKER_SHORTCUTS:
+            marker_type = _MARKER_SHORTCUTS[marker_type]
 
-        return getattr(self, markertype)(*args, **kwargs)
+        # The original scatter implementation allowed circle scatters to set a
+        # radius. We will leave this here for compatibility but note that it
+        # only works when the marker type is "circle" (and not referencing a
+        # data source column). Consider deprecating in the future.
+        if marker_type == "circle" and "radius" in kwargs:
+            return self.circle(*args, **kwargs)
+        else:
+            return self._scatter(*args, marker=marker_type, **kwargs)
+
+    def hexbin(self, x, y, size, orientation="pointytop", palette="Viridis256", line_color=None, fill_color=None, aspect_scale=1, **kwargs):
+        ''' Perform a simple equal-weight hexagonal binning.
+
+        A :class:`~bokeh.models._glyphs.HexTile` glyph will be added to display
+        the binning. The :class:`~bokeh.models.sources.ColumnDataSource` for
+        the glyph will have columns ``q``, ``r``, and ``count``, where ``q``
+        and ``r`` are `axial coordinates`_ for a tile, and ``count`` is the
+        associated bin count.
+
+        It is often useful to set ``match_aspect=True`` on the associated plot,
+        so that hexagonal tiles are all regular (i.e. not "stretched") in
+        screen space.
+
+        For more sophisicated use-cases, e.g. weighted binning or individually
+        scaling hex tiles, use :func:`hex_tile` directly, or consider a higher
+        level library such as HoloViews.
+
+        Args:
+            x (array[float]) :
+                A NumPy array of x-coordinates to bin into haxagonal tiles.
+
+            y (array[float]) :
+                A NumPy array of y-coordinates to bin into haxagonal tiles
+
+            size (float) :
+                The size of the hexagonal tiling to use. The size is defined as
+                distance from the center of a hexagon to a corner.
+
+                In case the apsect scaling is not 1-1, then specifically `size`
+                is the distance from the center to the "top" corner with the
+                `"pointytop"` orientation, and the distance from the center to
+                a "side" corner with the "flattop" orientation.
+
+            orientation ("pointytop" or "flattop", optional) :
+                Whether the hexagonal tiles should be oriented with a pointed
+                corner on top, or a flat side on top. (default: "pointytop")
+
+            palette (str or seq[color], optional) :
+                A palette (or palette name) to use to colormap the bins according
+                to count. (default: 'Viridis256')
+
+                If ``fill_color`` is supplied, it overrides this value.
+
+            line_color (color, optional) :
+                The outline color for hex tiles, or None (default: None)
+
+            fill_color (color, optional) :
+                An optional fill color for hex tiles, or None. If None, then
+                the ``palette`` will be used to color map the tiles by
+                count. (default: None)
+
+            aspect_scale (float) :
+                Match a plot's aspect ratio scaling.
+
+                When working with a plot with ``aspect_scale != 1``, this
+                parameter can be set to match the plot, in order to draw
+                regular hexagons (insted of "stretched" ones).
+
+                This is roughly equivalent to binning in "screen space", and
+                it may be better to use axis-aligned rectangular bins when
+                plot aspect scales are not one.
+
+        Any additional keyword arguments are passed to :func:`hex_tile`.
+
+        Returns
+            (Glyphrender, DataFrame)
+                A tuple with the ``HexTile`` renderer generated to display the
+                binning, and a Pandas DataFrame with columns ``q``, ``r``,
+                and ``count``, where ``q`` and ``r`` are `axial coordinates`_
+                for a tile, and ``count`` is the associated bin count.
+
+        Example:
+
+            .. bokeh-plot::
+                :source-position: above
+
+                import numpy as np
+                from bokeh.models import HoverTool
+                from bokeh.plotting import figure, show
+
+                x = 2 + 2*np.random.standard_normal(500)
+                y = 2 + 2*np.random.standard_normal(500)
+
+                p = figure(match_aspect=True, tools="wheel_zoom,reset")
+                p.background_fill_color = '#440154'
+                p.grid.visible = False
+
+                p.hexbin(x, y, size=0.5, hover_color="pink", hover_alpha=0.8)
+
+                hover = HoverTool(tooltips=[("count", "@c"), ("(q,r)", "(@q, @r)")])
+                p.add_tools(hover)
+
+                show(p)
+
+        .. _axial coordinates: https://www.redblobgames.com/grids/hexagons/#coordinates-axial
+
+        '''
+        from ..util.hex import hexbin
+
+        bins = hexbin(x, y, size, orientation, aspect_scale=aspect_scale)
+
+        if fill_color is None:
+            fill_color = linear_cmap('c', palette, 0, max(bins.counts))
+
+        source = ColumnDataSource(data=dict(q=bins.q, r=bins.r, c=bins.counts))
+
+        r = self.hex_tile(q="q", r="r", size=size, orientation=orientation, aspect_scale=aspect_scale,
+                          source=source, line_color=line_color, fill_color=fill_color, **kwargs)
+
+        return (r, bins)
 
     def hbar_stack(self, stackers, **kw):
         ''' Generate multiple ``HBar`` renderers for levels stacked left to right.
@@ -683,9 +900,16 @@ Examples:
             stackers (seq[str]) : a list of data source field names to stack
                 successively for ``left`` and ``right`` bar coordinates.
 
+                Additionally, the ``name`` of the renderer will be set to
+                the value of each successive stacker (this is useful with the
+                special hover variable ``$name``)
+
         Any additional keyword arguments are passed to each call to ``hbar``.
         If a keyword value is a list or tuple, then each call will get one
         value from the sequence.
+
+        Returns:
+            list[GlyphRenderer]
 
         Examples:
 
@@ -701,12 +925,14 @@ Examples:
 
             .. code-block:: python
 
-                p.hbar(bottom=stack(),       top=stack('2016'),         x=10, width=0.9, color='blue', source=source)
-                p.hbar(bottom=stack('2016'), top=stack('2016', '2017'), x=10, width=0.9, color='red', source=source)
+                p.hbar(bottom=stack(),       top=stack('2016'),         x=10, width=0.9, color='blue', source=source, name='2016')
+                p.hbar(bottom=stack('2016'), top=stack('2016', '2017'), x=10, width=0.9, color='red',  source=source, name='2017')
 
         '''
+        result = []
         for kw in _stack(stackers, "left", "right", **kw):
-            self.hbar(**kw)
+            result.append(self.hbar(**kw))
+        return result
 
     def vbar_stack(self, stackers, **kw):
         ''' Generate multiple ``VBar`` renderers for levels stacked bottom
@@ -716,14 +942,21 @@ Examples:
             stackers (seq[str]) : a list of data source field names to stack
                 successively for ``left`` and ``right`` bar coordinates.
 
+                Additionally, the ``name`` of the renderer will be set to
+                the value of each successive stacker (this is useful with the
+                special hover variable ``$name``)
+
         Any additional keyword arguments are passed to each call to ``vbar``.
         If a keyword value is a list or tuple, then each call will get one
         value from the sequence.
 
+        Returns:
+            list[GlyphRenderer]
+
         Examples:
 
             Assuming a ``ColumnDataSource`` named ``source`` with columns
-            *2106* and *2017*, then the following call to ``vbar_stack`` will
+            *2016* and *2017*, then the following call to ``vbar_stack`` will
             will create two ``VBar`` renderers that stack:
 
             .. code-block:: python
@@ -734,13 +967,15 @@ Examples:
 
             .. code-block:: python
 
-                p.vbar(bottom=stack(),       top=stack('2016'),         x=10, width=0.9, color='blue', source=source)
-                p.vbar(bottom=stack('2016'), top=stack('2016', '2017'), x=10, width=0.9, color='red', source=source)
+                p.vbar(bottom=stack(),       top=stack('2016'),         x=10, width=0.9, color='blue', source=source, name='2016')
+                p.vbar(bottom=stack('2016'), top=stack('2016', '2017'), x=10, width=0.9, color='red',  source=source, name='2017')
 
 
         '''
+        result = []
         for kw in _stack(stackers, "bottom", "top", **kw):
-            self.vbar(**kw)
+            result.append(self.vbar(**kw))
+        return result
 
     def graph(self, node_source, edge_source, layout_provider, **kwargs):
         ''' Creates a network graph using the given node, edge and layout provider.
@@ -764,68 +999,29 @@ Examples:
         return graph_renderer
 
 def figure(**kwargs):
-    ''' Create a new :class:`~bokeh.plotting.figure.Figure` for plotting.
-
-    Figure objects have many glyph methods that can be used to draw
-    vectorized graphical glyphs:
-
-    .. hlist::
-        :columns: 3
-
-{glyph_methods}
-
-    There are also two specialized methods for stacking bars:
-    :func:`~bokeh.plotting.figure.Figure.hbar_stack` and
-    :func:`~bokeh.plotting.figure.Figure.vbar_stack`
-
-    In addition to the standard :class:`~bokeh.plotting.figure.Figure`
-    property values (e.g. ``plot_width`` or ``sizing_mode``) the following
-    additional options can be passed as well:
-
-    .. bokeh-options:: FigureOptions
-        :module: bokeh.plotting.figure
-
-    Returns:
-       Figure
-
-    '''
-
     return Figure(**kwargs)
+figure.__doc__ = Figure.__doc__
 
-
-_marker_types = [
-    "asterisk",
-    "circle",
-    "circle_cross",
-    "circle_x",
-    "cross",
-    "diamond",
-    "diamond_cross",
-    "inverted_triangle",
-    "square",
-    "square_x",
-    "square_cross",
-    "triangle",
-    "x",
-    "*",
-    "+",
-    "o",
-    "ox",
-    "o+",
-]
+_MARKER_SHORTCUTS = {
+    "*"  : "asterisk",
+    "+"  : "cross",
+    "o"  : "circle",
+    "ox" : "circle_x",
+    "o+" : "circle_cross",
+    "-"  : "dash",
+    "v"  : "inverted_triangle",
+    "^"  : "triangle",
+}
 
 def markers():
-    """ Prints a list of valid marker types for scatter()
+    ''' Prints a list of valid marker types for scatter()
 
     Returns:
         None
-    """
-    print("Available markers: \n - " + "\n - ".join(_marker_types))
+    '''
+    print("Available markers: \n\n - " + "\n - ".join(list(MarkerType)))
+    print()
+    print("Shortcuts: \n\n" + "\n".join(" %r: %s" % item for item in _MARKER_SHORTCUTS.items()))
 
 _color_fields = set(["color", "fill_color", "line_color"])
 _alpha_fields = set(["alpha", "fill_alpha", "line_alpha"])
-
-_gms = sorted(x for x in dir(Figure) if getattr(getattr(Figure, x), 'glyph_method', False))
-_gms = "\n".join("        * :func:`~bokeh.plotting.figure.Figure.%s`" % x for x in _gms)
-Figure.__doc__ = format_docstring(Figure.__doc__, glyph_methods=_gms)
-figure.__doc__ = format_docstring(figure.__doc__, glyph_methods=_gms)

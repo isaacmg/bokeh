@@ -7,9 +7,10 @@ from ..core.enums import MapType
 from ..core.has_props import abstract
 from ..core.properties import Bool, Enum, Float, Instance, Int, JSON, Override, String
 from ..core.validation import error, warning
-from ..core.validation.warnings import MISSING_RENDERERS, NO_DATA_RENDERERS
-from ..core.validation.errors import REQUIRED_RANGE, MISSING_GOOGLE_API_KEY
+from ..core.validation.warnings import MISSING_RENDERERS
+from ..core.validation.errors import INCOMPATIBLE_MAP_RANGE_TYPE, REQUIRED_RANGE, MISSING_GOOGLE_API_KEY
 from ..model import Model
+from ..models.ranges import Range1d
 from .plots import Plot
 
 @abstract
@@ -36,6 +37,21 @@ class MapPlot(Plot):
 
     '''
 
+    def __init__(self, *args, **kw):
+        from ..models.ranges import Range1d
+        for r in ('x_range', 'y_range'):
+            if r in kw and not isinstance(kw.get(r), Range1d):
+                raise ValueError('Invalid value for %r, MapPlot ranges may only be Range1d, not data ranges' % r)
+        super(MapPlot, self).__init__(*args, **kw)
+
+    @error(INCOMPATIBLE_MAP_RANGE_TYPE)
+    def _check_incompatible_map_range_type(self):
+        from ..models.ranges import Range1d
+        if self.x_range is not None and not isinstance(self.x_range, Range1d):
+            return "%s.x_range" % str(self)
+        if self.y_range is not None and not isinstance(self.y_range, Range1d):
+            return "%s.y_range" % str(self)
+
 class GMapOptions(MapOptions):
     ''' Options for GMapPlot objects.
 
@@ -61,12 +77,24 @@ class GMapOptions(MapOptions):
 
     """)
 
+    tilt = Int(default=45, help="""
+    `Tilt`_ angle of the map. The only allowed values are 0 and 45.
+    Only has an effect on 'satellite' and 'hybrid' map types.
+    A value of 0 causes the map to always use a 0 degree overhead view.
+    A value of 45 causes the tilt angle to switch to 45 imagery if available.
+
+    .. _Tilt: https://developers.google.com/maps/documentation/javascript/reference/3/map#MapOptions.tilt
+
+    """)
+
 class GMapPlot(MapPlot):
     ''' A Bokeh Plot with a `Google Map`_ displayed underneath.
 
-    Data placed on this plot should be specified in decimal lat long coordinates e.g. 37.123, -122.404.
-    It will be automatically converted into the web mercator projection to display properly over
-    google maps tiles.
+    Data placed on this plot should be specified in decimal lat/lon coordinates
+    e.g. ``(37.123, -122.404)``. It will be automatically converted into the
+    web mercator projection to display properly over google maps tiles.
+
+    Please also note that only ``Range1d`` ranges are supported by ``GMapPlot``.
 
     .. _Google Map: https://www.google.com/maps/
 
@@ -79,10 +107,6 @@ class GMapPlot(MapPlot):
 
     @warning(MISSING_RENDERERS)
     def _check_missing_renderers(self):
-        pass
-
-    @warning(NO_DATA_RENDERERS)
-    def _check_no_data_renderers(self):
         pass
 
     @error(MISSING_GOOGLE_API_KEY)
@@ -100,3 +124,7 @@ class GMapPlot(MapPlot):
     Google Maps API requires an API key. See https://developers.google.com/maps/documentation/javascript/get-api-key
     for more information on how to obtain your own.
     """)
+
+    x_range = Override(default=lambda: Range1d())
+
+    y_range = Override(default=lambda: Range1d())

@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -17,8 +17,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 log = logging.getLogger(__name__)
 
-from bokeh.util.api import public, internal ; public, internal
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -35,11 +33,14 @@ from .color import Color
 # Globals and constants
 #-----------------------------------------------------------------------------
 
+__all__ = (
+    'RGB',
+)
+
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
-@public((1,0,0))
 class RGB(Color):
     ''' Represent colors by specifying their Red, Green, and Blue channels.
 
@@ -70,7 +71,6 @@ class RGB(Color):
         self.b = b
         self.a = a
 
-    @public((1,0,0))
     def copy(self):
         ''' Return a copy of this color value.
 
@@ -81,7 +81,6 @@ class RGB(Color):
         return RGB(self.r, self.g, self.b, self.a)
 
     @classmethod
-    @public((1,0,0))
     def from_hsl(self, value):
         ''' Create an RGB color from an HSL color value.
 
@@ -96,7 +95,6 @@ class RGB(Color):
         return value.to_rgb()
 
     @classmethod
-    @public((1,0,0))
     def from_rgb(self, value):
         ''' Copy an RGB color from another RGB color value.
 
@@ -110,7 +108,6 @@ class RGB(Color):
         '''
         return value.copy()
 
-    @public((1,0,0))
     def to_css(self):
         ''' Generate the CSS representation of this RGB color.
 
@@ -123,7 +120,6 @@ class RGB(Color):
         else:
             return "rgba(%d, %d, %d, %s)" % (self.r, self.g, self.b, self.a)
 
-    @public((1,0,0))
     def to_hex(self):
         ''' Return a hex color string for this RGB color.
 
@@ -136,7 +132,6 @@ class RGB(Color):
         '''
         return "#%02X%02X%02X" % (self.r, self.g, self.b)
 
-    @public((1,0,0))
     def to_hsl(self):
         ''' Return a corresponding HSL color for this RGB color.
 
@@ -148,7 +143,6 @@ class RGB(Color):
         h, l, s = colorsys.rgb_to_hls(float(self.r)/255, float(self.g)/255, float(self.b)/255)
         return HSL(round(h*360), s, l, self.a)
 
-    @public((1,0,0))
     def to_rgb(self):
         ''' Return a RGB copy for this RGB color.
 
@@ -159,7 +153,7 @@ class RGB(Color):
         return self.copy()
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------

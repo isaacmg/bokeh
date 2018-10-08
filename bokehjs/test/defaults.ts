@@ -1,9 +1,9 @@
 import {expect} from "chai"
 
-import * as core_defaults from "./.generated_defaults/models_defaults"
-import * as widget_defaults from "./.generated_defaults/widgets_defaults"
+import models_defaults = require("./.generated_defaults/models_defaults.json")
+import widget_defaults = require("./.generated_defaults/widgets_defaults.json")
 
-import {isArray, isObject} from "core/util/types"
+import {isArray, isPlainObject} from "core/util/types"
 import {difference, concat} from "core/util/array"
 import {keys} from "core/util/object"
 import {isEqual} from "core/util/eq"
@@ -15,7 +15,7 @@ import {Widgets as widget_models} from "models/widgets/main"
 import {Tables as table_models} from "models/widgets/tables/main"
 
 function get_defaults(name: string) {
-  const defaults = core_defaults.get_defaults(name) || widget_defaults.get_defaults(name)
+  const defaults = models_defaults[name] || widget_defaults[name]
   if (defaults != null)
     return defaults
   else
@@ -43,7 +43,7 @@ function deep_value_to_json(_key: string, value: any, _optional_parent_object: a
       ref_array.push(deep_value_to_json(i.toString(), value[i], value))
     }
     return ref_array
-  } else if (isObject(value)) {
+  } else if (isPlainObject(value)) {
     const ref_obj: {[key: string]: any} = {}
     for (const subkey in value) {
       if (value.hasOwnProperty(subkey))
@@ -54,7 +54,9 @@ function deep_value_to_json(_key: string, value: any, _optional_parent_object: a
     return value
 }
 
-function check_matching_defaults(name: string, python_defaults: {[key: string]: any}, bokehjs_defaults: {[key: string]: any}): boolean {
+type KV = {[key: string]: any}
+
+function check_matching_defaults(name: string, python_defaults: KV, bokehjs_defaults: KV): boolean {
   const different: string[] = []
   const python_missing: string[] = []
   const bokehjs_missing: string[] = []
@@ -81,10 +83,6 @@ function check_matching_defaults(name: string, python_defaults: {[key: string]: 
     if (name === "Title" && (k === "text_align" || k === "text_baseline"))
       continue
 
-    // special case for selections that have a method added to them
-    if (k === 'selected')
-      delete js_v['0d'].get_view
-
     if (k === 'id')
       continue
 
@@ -95,14 +93,14 @@ function check_matching_defaults(name: string, python_defaults: {[key: string]: 
       if (!isEqual(py_v, js_v)) {
 
         // these two conditionals compare 'foo' and {value: 'foo'}
-        if (isObject(js_v) && 'value' in js_v && isEqual(py_v, js_v['value']))
+        if (isPlainObject(js_v) && 'value' in js_v && isEqual(py_v, js_v['value']))
           continue
-        if (isObject(py_v) && 'value' in py_v && isEqual(py_v['value'], js_v))
+        if (isPlainObject(py_v) && 'value' in py_v && isEqual(py_v['value'], js_v))
           continue
 
-        if (isObject(js_v) && 'attributes' in js_v && isObject(py_v) && 'attributes' in py_v) {
+        if (isPlainObject(js_v) && 'attributes' in js_v && isPlainObject(py_v) && 'attributes' in py_v) {
           if (js_v['type'] === py_v['type']) {
-            check_matching_defaults(`${name}.${k}`, py_v['attributes'], js_v['attributes'])
+            check_matching_defaults(`${name}.${k}`, py_v['attributes'] as KV, js_v['attributes'] as KV)
             continue
           }
         }
@@ -166,7 +164,7 @@ function strip_ids(value: any): void {
     for (const v of value) {
       strip_ids(v)
     }
-  } else if (isObject(value)) {
+  } else if (isPlainObject(value)) {
     if ('id' in value) {
       delete value.id
     }
@@ -181,7 +179,7 @@ describe("Defaults", () => {
   // in Bokeh or just leave it as a curated (or ad hoc?) subset
   it.skip("have all non-Widget view models from Python in the Models object", () => {
     const missing = []
-    for (const name of core_defaults.all_view_model_names()) {
+    for (const name of keys(models_defaults)) {
       if (!(name in Models.registered_names())) {
         missing.push(name)
       }
@@ -194,7 +192,7 @@ describe("Defaults", () => {
 
   it("have all Widget view models from Python in widget locations registry", () => {
     const missing = []
-    for (const name of widget_defaults.all_view_model_names()) {
+    for (const name of keys(widget_defaults)) {
       if (!(name in widget_models || name in table_models)) {
         missing.push(name)
       }
@@ -211,7 +209,7 @@ describe("Defaults", () => {
       registered[name] = true
     }
     const missing = []
-    const all_view_model_names = concat([core_defaults.all_view_model_names(), widget_defaults.all_view_model_names()])
+    const all_view_model_names = concat([keys(models_defaults), keys(widget_defaults)])
     for (const name of all_view_model_names) {
       if (!(name in registered)) {
         missing.push(name)
@@ -225,10 +223,10 @@ describe("Defaults", () => {
 
   it("match between Python and bokehjs", () => {
     let fail_count = 0
-    const all_view_model_names = concat([core_defaults.all_view_model_names(), widget_defaults.all_view_model_names()])
+    const all_view_model_names = concat([keys(models_defaults), keys(widget_defaults)])
     for (const name of all_view_model_names) {
       const model = Models(name)
-      const instance = new model({}, {silent: true, defer_initialization: true})
+      const instance = new model({__deferred__: true})
       const attrs = instance.attributes_as_json(true, deep_value_to_json)
       strip_ids(attrs)
 

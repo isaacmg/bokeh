@@ -4,10 +4,8 @@ import pandas as pd
 from bokeh.core.properties import field
 from bokeh.io import curdoc
 from bokeh.layouts import layout
-from bokeh.models import (
-    ColumnDataSource, HoverTool, SingleIntervalTicker, Slider, Button, Label,
-    CategoricalColorMapper,
-)
+from bokeh.models import (ColumnDataSource, HoverTool, SingleIntervalTicker,
+                          Slider, Button, Label, CategoricalColorMapper)
 from bokeh.palettes import Spectral6
 from bokeh.plotting import figure
 
@@ -68,14 +66,16 @@ def slider_update(attrname, old, new):
 slider = Slider(start=years[0], end=years[-1], value=years[0], step=1, title="Year")
 slider.on_change('value', slider_update)
 
+callback_id = None
 
 def animate():
+    global callback_id
     if button.label == '► Play':
         button.label = '❚❚ Pause'
-        curdoc().add_periodic_callback(animate_update, 200)
+        callback_id = curdoc().add_periodic_callback(animate_update, 200)
     else:
         button.label = '► Play'
-        curdoc().remove_periodic_callback(animate_update)
+        curdoc().remove_periodic_callback(callback_id)
 
 button = Button(label='► Play', width=60)
 button.on_click(animate)

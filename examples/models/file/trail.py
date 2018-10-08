@@ -15,9 +15,8 @@ from bokeh.util.browser import view
 from bokeh.models.glyphs import Line, Patches
 from bokeh.models.layouts import Column
 from bokeh.models import (
-    Plot, GMapPlot, GMapOptions,
-    DataRange1d, ColumnDataSource,
-    LinearAxis, Grid, Label,
+    Plot, GMapPlot, GMapOptions, ColumnDataSource,
+    LinearAxis, Grid, Label, Range1d,
     PanTool, WheelZoomTool, ResetTool)
 
 from bokeh.sampledata.mtb import obiszow_mtb_xcm
@@ -82,8 +81,8 @@ def trail_map(data):
     map_options = GMapOptions(lng=lon, lat=lat, zoom=13)
     plot = GMapPlot(plot_width=800, plot_height=800, map_options=map_options, api_key=API_KEY)
     plot.title.text = "%s - Trail Map" % name
-    plot.x_range = DataRange1d()
-    plot.y_range = DataRange1d()
+    plot.x_range = Range1d()
+    plot.y_range = Range1d()
     plot.add_tools(PanTool(), WheelZoomTool(), ResetTool())
 
     line_source = ColumnDataSource(dict(x=data.lon, y=data.lat, dist=data.dist))
@@ -101,8 +100,7 @@ def trail_map(data):
 def altitude_profile(data):
     plot = Plot(plot_width=800, plot_height=400)
     plot.title.text = "%s - Altitude Profile" % name
-    plot.x_range = DataRange1d()
-    plot.y_range = DataRange1d(range_padding=0)
+    plot.y_range.range_padding = 0
 
     xaxis = LinearAxis(axis_label="Distance (km)")
     plot.add_layout(xaxis, 'below')

@@ -1,11 +1,10 @@
 {expect} = require "chai"
-utils = require "../../../utils"
 
-{Document} = utils.require("document")
-{ZoomInTool} = utils.require("models/tools/actions/zoom_in_tool")
-{Range1d} = utils.require("models/ranges/range1d")
-{Plot} = utils.require("models/plots/plot")
-{Toolbar} = utils.require("models/tools/toolbar")
+{Document} = require("document")
+{ZoomInTool} = require("models/tools/actions/zoom_in_tool")
+{Range1d} = require("models/ranges/range1d")
+{Plot} = require("models/plots/plot")
+{Toolbar} = require("models/tools/toolbar")
 
 describe "ZoomInTool", ->
 
@@ -23,12 +22,7 @@ describe "ZoomInTool", ->
 
   describe "View", ->
 
-    afterEach ->
-      utils.unstub_canvas()
-
     beforeEach ->
-      utils.stub_canvas()
-
       @plot = new Plot({
          x_range: new Range1d({start: -1, end: 1})
          y_range: new Range1d({start: -1, end: 1})

@@ -1,17 +1,16 @@
 {expect} = require "chai"
-utils = require "./utils"
 sinon = require "sinon"
 { stdoutTrap, stderrTrap } = require 'logtrap'
 
-{values, size} = utils.require("core/util/object")
-{Document, ModelChangedEvent, TitleChangedEvent, RootAddedEvent, RootRemovedEvent, DEFAULT_TITLE} = utils.require "document"
-{GE, Strength, Variable}  = utils.require "core/layout/solver"
-js_version = utils.require("version").version
-{Models} = utils.require "base"
-{Model} = utils.require "model"
-{LayoutDOM} = utils.require "models/layouts/layout_dom"
-logging = utils.require "core/logging"
-p = utils.require "core/properties"
+{values, size} = require("core/util/object")
+{Document, ModelChangedEvent, TitleChangedEvent, RootAddedEvent, RootRemovedEvent, DEFAULT_TITLE} = require "document"
+{GE, Strength, Variable}  = require "core/layout/solver"
+js_version = require("version").version
+{Models} = require "base"
+{Model} = require "model"
+{LayoutDOM} = require "models/layouts/layout_dom"
+logging = require "core/logging"
+p = require "core/properties"
 
 class AnotherModel extends Model
   type: 'AnotherModel'
@@ -196,6 +195,35 @@ describe "Document", ->
     expect(d.roots().length).to.equal 0
     d.add_root(new AnotherModel())
     expect(d.roots().length).to.equal 1
+
+  it "manages noting interactivity periods", sinon.test () ->
+    d = new Document()
+    expect(d._interactive_plot).to.be.null
+    expect(d._interactive_timestamp).to.be.null
+    expect(d.interactive_duration()).to.equal -1
+    stub = sinon.stub(Date, 'now')
+    stub.onCall(0).returns(10);
+    stub.onCall(1).returns(12);
+    stub.onCall(2).returns(15);
+    stub.onCall(3).returns(18);
+
+    m1 = new SomeModel()
+    m2 = new AnotherModel()
+
+    d.interactive_start(m1)  # first stub value 10
+    expect(d._interactive_plot.id).to.equal m1.id
+    expect(d._interactive_timestamp).to.be.equal 10
+    expect(d.interactive_duration()).to.be.equal 2 # second stub value 12
+
+    d.interactive_start(m2)  # third stub value 15
+    expect(d._interactive_plot.id).to.equal m1.id
+    expect(d._interactive_timestamp).to.be.equal 15
+    expect(d.interactive_duration()).to.be.equal 3 # second stub value 18
+
+    d.interactive_stop(m1)
+    expect(d._interactive_plot).to.be.null
+    expect(d._interactive_timestamp).to.be.null
+    expect(d.interactive_duration()).to.equal -1
 
   it "has working set_title", ->
     d = new Document()
@@ -580,15 +608,15 @@ describe "Document", ->
 
     parsed['version'] = "0.0.1"
     out = stderrTrap -> Document.from_json_string(JSON.stringify(parsed))
-    expect(out).to.be.equal "[bokeh] JS/Python version mismatch\n[bokeh] Library versions: JS (#{js_version})  /  Python (#{parsed["version"]})\n"
+    expect(out).to.be.equal "[bokeh] JS/Python version mismatch\n[bokeh] Library versions: JS (#{js_version}) / Python (#{parsed["version"]})\n"
 
     parsed['version'] = "#{js_version}rc123"
     out = stderrTrap -> Document.from_json_string(JSON.stringify(parsed))
-    expect(out).to.be.equal "[bokeh] JS/Python version mismatch\n[bokeh] Library versions: JS (#{js_version})  /  Python (#{parsed["version"]})\n"
+    expect(out).to.be.equal "[bokeh] JS/Python version mismatch\n[bokeh] Library versions: JS (#{js_version}) / Python (#{parsed["version"]})\n"
 
     parsed['version'] = "#{js_version}dev123"
     out = stderrTrap -> Document.from_json_string(JSON.stringify(parsed))
-    expect(out).to.be.equal "[bokeh] JS/Python version mismatch\n[bokeh] Library versions: JS (#{js_version})  /  Python (#{parsed["version"]})\n"
+    expect(out).to.be.equal "[bokeh] JS/Python version mismatch\n[bokeh] Library versions: JS (#{js_version}) / Python (#{parsed["version"]})\n"
 
     parsed['version'] = "#{js_version}-foo"
     out = stderrTrap -> Document.from_json_string(JSON.stringify(parsed))

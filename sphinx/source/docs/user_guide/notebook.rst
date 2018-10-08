@@ -8,7 +8,10 @@ Working in the Notebook
 Inline Plots
 ------------
 
-To display Bokeh plots inline in a Jupyter/Zeppelin notebook, use the
+Classic Notebook
+~~~~~~~~~~~~~~~~
+
+To display Bokeh plots inline in a classic Jupyter notebooks, use the
 |output_notebook| function from |bokeh.io| instead of (or in addition to)
 the |output_file| function we have seen previously. No other modifications
 are required. When |show| is called, the plot will be displayed inline in
@@ -18,6 +21,16 @@ the next notebook output cell. You can see a Jupyter screenshot below:
     :scale: 50 %
     :align: center
 
+Multiple plots can be displayed in a single notebook output cell by calling
+|show| multiple times in the input cell. The plots will be displayed in order.
+
+.. image:: /_images/notebook_inline_multiple.png
+    :scale: 50 %
+    :align: center
+
+JupyterLab
+~~~~~~~~~~
+
 In order to embed Bokeh plots inside of JupyterLab, you need to install
 the "jupyterlab_bokeh" JupyterLab extension. This can be done by running
 the command: ``jupyter labextension install jupyterlab_bokeh``.
@@ -26,15 +39,95 @@ the command: ``jupyter labextension install jupyterlab_bokeh``.
     :scale: 25 %
     :align: center
 
-By defaults, |output_notebook| apply to Juypter. If you want to use bokeh
-to display inline plots in Zeppelin, you need to specify `notebook_type`
-to `zeppelin` in |output_notebook|. Here's one Zeppelin screenshot.
+JupyterHub
+~~~~~~~~~~
+
+In order to embed Bokeh plots that don't use the Bokeh server, you can
+follow instructions contained in the JupyterLab section and stop there.
+
+If you want to use the Bokeh server, run the JupyterLab instructions
+then continue with the following instructions.
+
+If you want to run a Bokeh plot that utilizes the python-based Bokeh
+server, there are some additional steps you must follow to enable
+network connectivity between the client browser and the Bokeh server
+running in the JupyterLab cell.  This is because your browser needs to
+connect to the port the Bokeh server is listening on, but JupyterHub is
+acting as a reverse proxy between your browser and your JupyterLab
+container.
+
+First, you must install the "nbserverproxy" server extension (requires
+python3).  This can be done by running the command:
+``pip install nbserverproxy && jupyter serverextension enable --py nbserverproxy``.
+
+Second, you must define a function to help create the URL that the browser
+uses to connect to the Bokeh server.  This will be passed into |show| in
+the final step.  A reference implementation is provided here, although you
+must either modify it or define the environment variable ``EXTERNAL_URL``
+to the URL of your JupyterHub installation.  By default, JupyterHub will set
+``JUPYTERHUB_SERVICE_PREFIX``.
+
+.. code-block:: python
+
+    def remote_jupyter_proxy_url(port):
+        """
+        Callable to configure Bokeh's show method when a proxy must be
+        configured.
+
+        If port is None we're asking about the URL
+        for the origin header.
+        """
+        base_url = os.environ['EXTERNAL_URL']
+        host = urllib.parse.urlparse(base_url).netloc
+
+        # If port is None we're asking for the URL origin
+        # so return the public hostname.
+        if port is None:
+            return host
+
+        service_url_path = os.environ['JUPYTERHUB_SERVICE_PREFIX']
+        proxy_url_path = 'proxy/%d' % port
+
+        user_url = urllib.parse.urljoin(base_url, service_url_path)
+        full_url = urllib.parse.urljoin(user_url, proxy_url_path)
+        return full_url
+
+Finally, you can pass the function you defined in step 2 to |show|
+as the notebook_url keyword argument, which Bokeh will call while
+setting up the server and creating the URL for loading the graph:
+
+.. code-block:: python
+
+    show(obj, notebook_url=remote_jupyter_proxy_url)
+
+At this point, the Bokeh graph should load and execute python
+callbacks defined in your JupyterLab environment.
+
+Zeppelin
+~~~~~~~~
+
+By defaults, |output_notebook| apply to only to Juypter. If you want to
+use Bokeh to display inline plots in Zeppelin notebooks, you need to install
+the separate `bkzep`_ package, and specify `notebook_type` to `zeppelin` in
+|output_notebook|:
 
 .. image:: /_images/bokeh_simple_test_zeppelin.png
     :scale: 50 %
     :align: center
 
 .. _userguide_notebook_slides:
+
+Trusting notebooks
+------------------
+
+Depending on the version of the Notebook in use, it may be necessary to
+"trust" the notebook in order for Bokeh plots to re-render when the
+notebook is closed and subsequently re-opened. The "Trust Notebook" option
+is typically located under the "File" menu:
+
+.. image:: /_images/notebook_trust.png
+    :scale: 50 %
+    :align: center
 
 Notebook Slides
 ---------------
@@ -136,3 +229,51 @@ notebook is shown below:
 .. _Reveal.js: http://lab.hakim.se/reveal-js/#/
 
 .. _interactors: http://ipywidgets.readthedocs.io/en/latest/examples/Using%20Interact.html
+
+.. _bkzep: https://github.com/zjffdu/bkzep
+
+More Example Notebooks
+----------------------
+
+Many more examples using Jupyter Notebook can be found in the `bokeh-notebook`_
+repository. First clone the repo locally:
+
+    git clone https://github.com/bokeh/bokeh-notebooks.git
+
+Then launch Jupyter Notebook in your web browser. Alternatively, live notebooks
+that can be run immediately online are hosted by `Binder`_.
+
+Additionally, there are some notebooks under `examples`_ in the main `Bokeh`_ repo:
+
+- `categorical data`_
+- `hover callback`_
+- `linked panning`_
+- `range update callback`_
+- `embed server in notebook`_
+- `US marriages and divorces interactive`_
+- `color scatterplot`_
+- `glyphs`_
+
+Notebook comms examples:
+
+- `basic usage`_
+- `continuous updating`_
+- `Jupyter interactors`_
+- `Numba image example`_
+
+.. _bokeh-notebook: https://github.com/bokeh/bokeh-notebooks
+.. _Binder: https://mybinder.org/v2/gh/bokeh/bokeh-notebooks/master?filepath=tutorial%2F00%20-%20Introduction%20and%20Setup.ipynb
+.. _examples: https://github.com/bokeh/bokeh/tree/master/examples
+.. _Bokeh: https://github.com/bokeh/bokeh
+.. _categorical data: https://github.com/bokeh/bokeh/blob/master/examples/howto/Categorical%20Data.ipynb
+.. _hover callback: https://github.com/bokeh/bokeh/blob/master/examples/howto/Hover%20callback.ipynb
+.. _linked panning: https://github.com/bokeh/bokeh/blob/master/examples/howto/Linked%20panning.ipynb
+.. _range update callback: https://github.com/bokeh/bokeh/blob/master/examples/howto/Range%20update%20callback.ipynb
+.. _embed server in notebook: https://github.com/bokeh/bokeh/blob/master/examples/howto/server_embed/notebook_embed.ipynb
+.. _US marriages and divorces interactive: https://github.com/bokeh/bokeh/blob/master/examples/howto/us_marriages_divorces/us_marriages_divorces_interactive.ipynb
+.. _color scatterplot: https://github.com/bokeh/bokeh/blob/master/examples/plotting/notebook/color_scatterplot.ipynb
+.. _glyphs: https://github.com/bokeh/bokeh/blob/master/examples/plotting/notebook/glyphs.ipynb
+.. _basic usage: https://github.com/bokeh/bokeh/blob/master/examples/howto/notebook_comms/Basic%20Usage.ipynb
+.. _continuous updating: https://github.com/bokeh/bokeh/blob/master/examples/howto/notebook_comms/Continuous%20Updating.ipynb
+.. _Jupyter interactors: https://github.com/bokeh/bokeh/blob/master/examples/howto/notebook_comms/Jupyter%20Interactors.ipynb
+.. _Numba image example: https://github.com/bokeh/bokeh/blob/master/examples/howto/notebook_comms/Numba%20Image%20Example.ipynb

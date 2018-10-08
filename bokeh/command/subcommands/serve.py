@@ -109,6 +109,10 @@ processes
 
     bokeh serve app_script.py --num-procs 2
 
+Note that due to limitations inherent in Tornado, Windows does not support
+``--num-procs`` values greater than one! In this case consider running multiple
+Bokeh server instances behind a load balancer.
+
 By default, cross site connections to the Bokeh server websocket are not
 allowed. You can enable websocket connections originating from additional
 hosts by specifying them with the ``--allow-websocket-origin`` option:
@@ -144,7 +148,7 @@ The value is specified in milliseconds. The default keep-alive interval
 is 37 seconds. Give a value of 0 to disable keep-alive pings.
 
 To control how often statistic logs are written, set the
---stats-log-frequency option:
+``--stats-log-frequency`` option:
 
 .. code-block:: sh
 
@@ -152,6 +156,17 @@ To control how often statistic logs are written, set the
 
 The value is specified in milliseconds. The default interval for
 logging stats is 15 seconds. Only positive integer values are accepted.
+
+Bokeh can also optionally log process memory usage. This feature requires
+the optional ``psutil`` package to be installed. To enable memory logging
+set the ``--mem-log-frequency`` option:
+
+. code-block:: sh
+
+    bokeh serve app_script.py --mem-log-frequency 30000
+
+The value is specified in milliseconds. The default interval for
+logging stats is 0 (disabled). Only positive integer values are accepted.
 
 To have the Bokeh server override the remote IP and URI scheme/protocol for
 all requests with ``X-Real-Ip``, ``X-Forwarded-For``, ``X-Scheme``,
@@ -286,15 +301,17 @@ import logging
 log = logging.getLogger(__name__)
 
 import argparse
-import warnings
 
 from bokeh.application import Application
 from bokeh.resources import DEFAULT_SERVER_PORT
 from bokeh.util.logconfig import basicConfig
 from bokeh.util.string import nice_join, format_docstring
+from bokeh.server.tornado import DEFAULT_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
 from bokeh.settings import settings
 
-from os import getpid
+from tornado.autoreload import watch
+import os
+from fnmatch import fnmatch
 
 from ..subcommand import Subcommand
 from ..util import build_single_handler_applications, die, report_server_init_errors
@@ -309,20 +326,6 @@ __doc__ = format_docstring(__doc__,
     SESSION_ID_MODES=nice_join(SESSION_ID_MODES),
     DEFAULT_LOG_FORMAT=DEFAULT_LOG_FORMAT
 )
-
-def _fixup_deprecated_host_args(args):
-    if args.host is not None and len(args.host) > 0:
-        if args.allow_websocket_origin is None:
-            args.allow_websocket_origin = []
-        args.allow_websocket_origin += args.host
-        args.allow_websocket_origin = list(set(args.allow_websocket_origin))
-        warnings.warn(
-            "The --host parameter is deprecated because it is no longer needed. "
-            "It will be removed and trigger an error in a future release. "
-            "Values set now will be copied to --allow-websocket-origin. "
-            "Depending on your use case, you may need to set current --host "
-            "values for 'allow_websocket_origin' instead."
-        )
 
 base_serve_args = (
     ('--port', dict(
@@ -352,6 +355,13 @@ base_serve_args = (
         action  = 'store',
         default = DEFAULT_LOG_FORMAT,
         help    = "A standard Python logging format string (default: %r)" % DEFAULT_LOG_FORMAT.replace("%", "%%"),
+    )),
+
+    ('--log-file', dict(
+        metavar ='LOG-FILE',
+        action  = 'store',
+        default = None,
+        help    = "A filename to write logs to, or None to write to the standard stream (default: None)",
     )),
 )
 
@@ -391,13 +401,6 @@ class Serve(Subcommand):
             help="Public hostnames which may connect to the Bokeh websocket",
         )),
 
-        ('--host', dict(
-            metavar='HOST[:PORT]',
-            action='append',
-            type=str,
-            help="*** DEPRECATED ***",
-        )),
-
         ('--prefix', dict(
             metavar='PREFIX',
             type=str,
@@ -433,6 +436,13 @@ class Serve(Subcommand):
             default=None,
         )),
 
+        ('--mem-log-frequency', dict(
+            metavar='MILLISECONDS',
+            type=int,
+            help="How often to log memory usage information",
+            default=None,
+        )),
+
         ('--use-xheaders', dict(
             action='store_true',
             help="Prefer X-headers for IP/protocol information",
@@ -459,10 +469,33 @@ class Serve(Subcommand):
         ('--num-procs', dict(
             metavar='N',
             action='store',
-            help="Number of worker processes for an app. Default to one. Using "
-                 "0 will autodetect number of cores",
+            help="Number of worker processes for an app. Using "
+                 "0 will autodetect number of cores (defaults to 1)",
             default=1,
             type=int,
+        )),
+
+        ('--websocket-max-message-size', dict(
+            metavar='BYTES',
+            action='store',
+            help="Set the Tornado websocket_max_message_size value (defaults "
+                 "to 20MB) NOTE: This setting has effect ONLY for Tornado>=4.5",
+            default=DEFAULT_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES,
+            type=int,
+        )),
+
+        ('--dev', dict(
+            metavar ='FILES-TO-WATCH',
+            action  ='store',
+            default = None,
+            type    = str,
+            nargs   = '*',
+            help    =   "Enable live reloading during app development."
+                        "By default it watches all *.py *.html *.css *.yaml files"
+                        "in the app directory tree. Additional files can be passed"
+                        "as arguments."
+                        "NOTE: This setting only works with a single app."
+                        "It also restricts the number of processes to 1.",
         )),
     )
 
@@ -480,37 +513,27 @@ class Serve(Subcommand):
         applications = build_single_handler_applications(args.files, argvs)
 
         log_level = getattr(logging, args.log_level.upper())
-        basicConfig(level=log_level, format=args.log_format)
-
-        # This should remain here until --host is removed entirely
-        _fixup_deprecated_host_args(args)
+        basicConfig(level=log_level, format=args.log_format, filename=args.log_file)
 
         if len(applications) == 0:
             # create an empty application by default
             applications['/'] = Application()
 
+        # rename args to be compatible with Server
         if args.keep_alive is not None:
-            if args.keep_alive == 0:
-                log.info("Keep-alive ping disabled")
-            else:
-                log.info("Keep-alive ping configured every %d milliseconds", args.keep_alive)
-            # rename to be compatible with Server
             args.keep_alive_milliseconds = args.keep_alive
 
         if args.check_unused_sessions is not None:
-            log.info("Check for unused sessions every %d milliseconds", args.check_unused_sessions)
-            # rename to be compatible with Server
             args.check_unused_sessions_milliseconds = args.check_unused_sessions
 
         if args.unused_session_lifetime is not None:
-            log.info("Unused sessions last for %d milliseconds", args.unused_session_lifetime)
-            # rename to be compatible with Server
             args.unused_session_lifetime_milliseconds = args.unused_session_lifetime
 
         if args.stats_log_frequency is not None:
-            log.info("Log statistics every %d milliseconds", args.stats_log_frequency)
-            # rename to be compatible with Server
             args.stats_log_frequency_milliseconds = args.stats_log_frequency
+
+        if args.mem_log_frequency is not None:
+            args.mem_log_frequency_milliseconds = args.mem_log_frequency
 
         server_kwargs = { key: getattr(args, key) for key in ['port',
                                                               'address',
@@ -521,7 +544,9 @@ class Serve(Subcommand):
                                                               'check_unused_sessions_milliseconds',
                                                               'unused_session_lifetime_milliseconds',
                                                               'stats_log_frequency_milliseconds',
+                                                              'mem_log_frequency_milliseconds',
                                                               'use_xheaders',
+                                                              'websocket_max_message_size',
                                                             ]
                           if getattr(args, key, None) is not None }
 
@@ -548,6 +573,39 @@ class Serve(Subcommand):
 
         server_kwargs['use_index'] = not args.disable_index
         server_kwargs['redirect_root'] = not args.disable_index_redirect
+        server_kwargs['autoreload'] = args.dev is not None
+
+        def find_autoreload_targets(app_path):
+            path = os.path.abspath(app_path)
+            if not os.path.isdir(path):
+                return
+
+            for path, subdirs, files in os.walk(path):
+                for name in files:
+                    if (fnmatch(name, '*.html') or
+                        fnmatch(name, '*.css') or
+                        fnmatch(name, '*.yaml')):
+                        log.info("Watching: " + os.path.join(path, name))
+                        watch(os.path.join(path, name))
+
+        def add_optional_autoreload_files(file_list):
+            for filen in file_list:
+                if os.path.isdir(filen):
+                    log.warn("Cannot watch directory " + filen)
+                    continue
+                log.info("Watching: " + filen)
+                watch(filen)
+
+        if server_kwargs['autoreload']:
+            if len(applications.keys()) != 1:
+                die("--dev can only support a single app.")
+            if server_kwargs['num_procs'] != 1:
+                log.info("Running in --dev mode. --num-procs is limited to 1.")
+                server_kwargs['num_procs'] = 1
+
+            find_autoreload_targets(args.files[0])
+            add_optional_autoreload_files(args.dev)
+
 
         with report_server_init_errors(**server_kwargs):
             server = Server(applications, **server_kwargs)
@@ -567,5 +625,5 @@ class Serve(Subcommand):
                 url = "http://%s:%d%s%s" % (address_string, server.port, server.prefix, route)
                 log.info("Bokeh app running at: %s" % url)
 
-            log.info("Starting Bokeh server with process id: %d" % getpid())
+            log.info("Starting Bokeh server with process id: %d" % os.getpid())
             server.run_until_shutdown()

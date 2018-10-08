@@ -13,9 +13,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import pytest ; pytest
 
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -25,43 +22,21 @@ from bokeh.util.testing import verify_api ; verify_api
 # External imports
 
 # Bokeh imports
-from bokeh.models import CategoricalColorMapper, Dodge, FactorRange, Jitter, LinearColorMapper, LogColorMapper, Stack
-from bokeh.util.testing import verify_all
+from bokeh.models import CategoricalColorMapper, CategoricalMarkerMapper, CumSum, Dodge, FactorRange, Jitter, LinearColorMapper, LogColorMapper, Stack
+from bokeh._testing.util.api import verify_all
 
 # Module under test
 import bokeh.transform as bt
-
-#-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
-
-api = {
-
-    PUBLIC: (
-
-        ( 'dodge',       (1, 0, 0) ),
-        ( 'factor_cmap', (1, 0, 0) ),
-        ( 'jitter',      (1, 0, 0) ),
-        ( 'linear_cmap', (1, 0, 0) ),
-        ( 'log_cmap',    (1, 0, 0) ),
-        ( 'stack',       (1, 0, 0) ),
-        ( 'transform',   (1, 0, 0) ),
-
-    ), INTERNAL: (
-
-    )
-
-}
-
-Test_api = verify_api(bt, api)
 
 #-----------------------------------------------------------------------------
 # Setup
 #-----------------------------------------------------------------------------
 
 ALL = (
+    'cumsum',
     'dodge',
     'factor_cmap',
+    'factor_mark',
     'jitter',
     'linear_cmap',
     'log_cmap',
@@ -70,10 +45,29 @@ ALL = (
 )
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 Test___all__ = verify_all(bt, ALL)
+
+class Test_cumsum(object):
+
+    def test_basic(object):
+        s = bt.cumsum("foo")
+        assert isinstance(s, dict)
+        assert list(s.keys()) == ["expr"]
+        assert isinstance(s['expr'], CumSum)
+        assert s['expr'].field == 'foo'
+        assert s['expr'].include_zero == False
+
+    def test_include_zero(object):
+        s = bt.cumsum("foo", include_zero=True)
+        assert isinstance(s, dict)
+        assert list(s.keys()) == ["expr"]
+        assert isinstance(s['expr'], CumSum)
+        assert s['expr'].field == 'foo'
+        assert s['expr'].include_zero == True
+
 
 class Test_dodge(object):
 
@@ -123,6 +117,30 @@ class Test_factor_cmap(object):
         assert t['transform'].end is None
         assert t['transform'].nan_color == "gray"
 
+class Test_factor_mark(object):
+
+    def test_basic(self):
+        t = bt.factor_mark("foo", ["hex", "square"], ["foo", "bar"], start=1, end=2)
+        assert isinstance(t, dict)
+        assert set(t) == {"field", "transform"}
+        assert t['field'] == "foo"
+        assert isinstance(t['transform'], CategoricalMarkerMapper)
+        assert t['transform'].markers == ["hex", "square"]
+        assert t['transform'].factors == ["foo", "bar"]
+        assert t['transform'].start == 1
+        assert t['transform'].end == 2
+
+    def test_defaults(self):
+        t = bt.factor_mark("foo", ["hex", "square"], ["foo", "bar"])
+        assert isinstance(t, dict)
+        assert set(t) == {"field", "transform"}
+        assert t['field'] == "foo"
+        assert isinstance(t['transform'], CategoricalMarkerMapper)
+        assert t['transform'].markers == ["hex", "square"]
+        assert t['transform'].factors == ["foo", "bar"]
+        assert t['transform'].start == 0
+        assert t['transform'].end is None
+
 class Test_jitter(object):
 
     def test_basic(self):
@@ -170,7 +188,7 @@ class Test_linear_cmap(object):
         assert isinstance(t['transform'], LinearColorMapper)
         assert t['transform'].palette == ["red", "green"]
         assert t['transform'].low == 0
-        assert t['transform'].high is 10
+        assert t['transform'].high == 10
         assert t['transform'].low_color == "orange"
         assert t['transform'].high_color == "blue"
         assert t['transform'].nan_color == "pink"
@@ -183,7 +201,7 @@ class Test_linear_cmap(object):
         assert isinstance(t['transform'], LinearColorMapper)
         assert t['transform'].palette == ["red", "green"]
         assert t['transform'].low == 0
-        assert t['transform'].high is 10
+        assert t['transform'].high == 10
         assert t['transform'].low_color is None
         assert t['transform'].high_color is None
         assert t['transform'].nan_color == "gray"
@@ -198,7 +216,7 @@ class Test_log_cmap(object):
         assert isinstance(t['transform'], LogColorMapper)
         assert t['transform'].palette == ["red", "green"]
         assert t['transform'].low == 0
-        assert t['transform'].high is 10
+        assert t['transform'].high == 10
         assert t['transform'].low_color == "orange"
         assert t['transform'].high_color == "blue"
         assert t['transform'].nan_color == "pink"
@@ -211,7 +229,7 @@ class Test_log_cmap(object):
         assert isinstance(t['transform'], LogColorMapper)
         assert t['transform'].palette == ["red", "green"]
         assert t['transform'].low == 0
-        assert t['transform'].high is 10
+        assert t['transform'].high == 10
         assert t['transform'].low_color is None
         assert t['transform'].high_color is None
         assert t['transform'].nan_color == "gray"
@@ -232,7 +250,7 @@ class Test_transform(object):
         assert t == dict(field="foo", transform="junk")
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------

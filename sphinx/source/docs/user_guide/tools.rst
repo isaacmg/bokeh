@@ -3,23 +3,39 @@
 Configuring Plot Tools
 ======================
 
-Bokeh comes with a number of interactive tools. There are three categories of tool
-interactions:
+Bokeh comes with a number of interactive tools that can be used to report
+information, to change plot parameters such as zoom level or range extents,
+or to add, edit, or delete glyphs. Tools can be grouped into four basic
+categories:
 
-* Gestures:
+Gestures
+    These are tools that respond to single gestures, such as a pan movement.
+    The types of gesture tools are:
 
-  - :ref:`userguide_tools_pandrag`
-  - :ref:`userguide_tools_clicktap`
-  - :ref:`userguide_tools_scrollpinch`
+    - :ref:`userguide_tools_pandrag`
+    - :ref:`userguide_tools_clicktap`
+    - :ref:`userguide_tools_scrollpinch`
 
-* :ref:`userguide_tools_actions`
-* :ref:`userguide_tools_inspectors`
+    For each type of gesture, one tool can be active at any given time, and
+    the active tool is indicated on the toolbar by a highlight next to to the
+    tool icon.
 
-For each type of gesture, one tool can be active at any given time, and
-the active tool is indicated on the toolbar by a highlight next to to the
-tool icon. Actions are immediate or modal operations that are only activated
-when their button in the toolbar is pressed. Inspectors are passive tools
-that report information or annotate the plot in some way.
+:ref:`userguide_tools_actions`
+    These  are immediate or modal operations that are only activated when their
+    button in the toolbar is pressed, such as the ``ResetTool``.
+
+:ref:`userguide_tools_inspectors`
+    These are passive tools that report information or annotate plots in some
+    way, such as the ``HoverTool`` or ``CrosshairTool``.
+
+:ref:`userguide_tools_edit`
+    These are sophisticated multi-gesture tools that can add, delete, or modify
+    glyphs on a plot. Since they may respond to several gestures at once, an
+    edit tool will potentially deactivate multiple single-gesture tools at once
+    when it is activated.
+
+In addition to information about all the individual tools, this chapter
+describes how the toolbar may be configured.
 
 .. _userguide_tools_toolbar:
 
@@ -92,8 +108,10 @@ in conjunction with the ``tools`` keyword described above:
 
 .. code-block:: python
 
+    from bokeh.models import BoxSelectTool
+
     plot = figure(tools="pan,wheel_zoom,box_zoom,reset")
-    plot.add_tools(BoxSelectTool(dimensions=["width"]))
+    plot.add_tools(BoxSelectTool(dimensions="width"))
 
 .. _userguide_tools_setting_active_tools:
 
@@ -163,8 +181,8 @@ BoxSelectTool
 The box selection tool allows the user to define a rectangular selection
 region by left-dragging a mouse, or dragging a finger across the plot area.
 The box select tool may be configured to select across only one dimension by
-setting the ``dimensions`` property to a list containing ``width`` or
-``height``.
+setting the ``dimensions`` property to ``width`` or ``height`` instead of the
+default ``both``.
 
 .. note::
     To make a multiple selection, press the SHIFT key. To clear the
@@ -414,6 +432,8 @@ in data or screen space. These special fields are listed here:
 
 :``$index``:
     index of selected point in the data source
+:``$name``:
+    value of the ``name`` property of the hovered glyph renderer
 :``$x``:
     x-coordinate under the cursor in data space
 :``$y``:
@@ -422,6 +442,8 @@ in data or screen space. These special fields are listed here:
     x-coordinate under the cursor in screen (canvas) space
 :``$sy``:
     y-coordinate under the cursor in screen (canvas) space
+:``$name``:
+    The ``name`` property of the glyph that is hovered over
 :``$color``:
     colors from a data source, with the syntax: ``$color[options]:field_name``.
     The available options are: ``hex`` (to display the color as a hex value),
@@ -437,8 +459,15 @@ Note that if a column name contains spaces, the it must be supplied by
 surrounding it in curly braces, e.g. ``@{adjusted close}`` will display values
 from a column named ``"adjusted close"``.
 
-Here is a complete example of how to configure and use the hover tool with
-a default tooltip:
+Sometimes (especially with stacked charts) it is desirable to allow the
+name of the column be specified indirectly. The field name ``@$name`` is
+distinguished in that it will look up the ``name`` field on the hovered
+glyph renderer, and use that value as the column name. For instance, if
+a user hovers with the name ``"US East"``, then ``@$name`` is equivalent to
+``@{US East}``.
+
+Here is a complete example of how to configure and use the hover tool by setting
+the ``tooltips`` argument to ``figure``:
 
 .. bokeh-plot:: docs/user_guide/examples/tools_hover_tooltips.py
     :source-position: above
@@ -515,8 +544,8 @@ Note that format specifications are also compatible with column names that
 have spaces. For example ```@{adjusted close}{($ 0.00 a)}`` applies a format
 to a column named "adjusted close".
 
-The example code below shows configuring a ``HoverTool`` with different
-formatters for different fields:
+The example code below shows explicitly configuring a ``HoverTool`` with
+different formatters for different fields:
 
 .. code-block:: python
 
@@ -543,6 +572,24 @@ over the plot below:
 .. bokeh-plot:: docs/user_guide/examples/tools_hover_tooltip_formatting.py
     :source-position: none
 
+Using the |CustomJSHover| model, it is also possible to use JavaScript
+to specify a custom formatter that can display derived quantities in the
+tooltip.
+
+
+Image Hover
+'''''''''''
+
+The hover tool can be used to inspect image glyphs which may contain
+layers of data in the corresponding ``ColumnDataSource``:
+
+.. bokeh-plot:: docs/user_guide/examples/tools_hover_tooltips_image.py
+    :source-position: above
+
+In this example, three image patterns are defined named ``ramp``,
+``steps`` and ``bitmask``. The hover tooltip shows the index of the
+image, the name of the pattern, the ``x`` and ``y`` position of the
+cursor as well as the corresponding value and value squared.
 
 .. _custom_hover_tooltip:
 
@@ -558,6 +605,323 @@ shown below:
 
 .. bokeh-plot:: docs/user_guide/examples/tools_hover_custom_tooltip.py
     :source-position: above
+
+
+.. _userguide_tools_edit:
+
+Edit Tools
+----------
+
+The edit tools provide functionality for drawing and editing glyphs
+client-side by adding, modifying and deleting ``ColumnDataSource``
+data.
+
+All the edit tools share a small number of key bindings:
+
+SHIFT
+  Modifier key to add to selection or start drawing
+
+BACKSPACE
+  Deletes the selected glyphs
+
+ESC
+  Clear the selection
+
+.. note::
+   On MacBooks and some other keyboards the BACKSPACE key is labelled
+   "delete".
+
+BoxEditTool
+~~~~~~~~~~~
+
+* name: ``'box_edit'``
+* menu icon: |box_edit_icon|
+
+The BoxEditTool allows drawing, dragging and deleting ``Rect`` glyphs
+on one or more renderers by editing the underlying
+``ColumnDataSource`` data. Like other drawing tools, the renderers
+that are to be edited must be supplied explicitly as a list:
+
+.. code-block:: python
+
+    r1 = p.rect('x', 'y', 'width', 'height', source=source)
+    r2 = p.rect('x', 'y', 'width', 'height', source=source2)
+    tool = BoxEditTool(renderers=[r1, r2])
+
+The tool will automatically modify the columns on the data source
+corresponding to the ``x``, ``y``, ``width`` and ``height`` values of
+the glyph. Any additional columns in the data source will be padded
+with the declared ``empty_value``, when adding a new box. When drawing
+a new box the data will always be added to the ``ColumnDataSource`` on
+the first supplied renderer.
+
+It is also often useful to limit the number of elements that can be
+drawn, e.g. when specifying a specific number of regions of interest.
+Using the ``num_objects`` property we can ensure that once the limit
+has been reached the oldest box will be popped off the queue to make
+space for the new box being added.
+
+.. raw:: html
+
+    <img src="http://bokeh.pydata.org/static/box_edit_keyboard_optimized.gif"
+     width='400px' alt="Animation showing box draw, select and delete actions">
+
+The animation above shows the supported tool actions, highlighting
+mouse actions with a circle around the cursor and key strokes by
+showing the pressed keys. The ``BoxEditTool`` can **Add**, **Move**
+and **Delete** boxes on plots:
+
+Add box
+  Hold shift then click and drag anywhere on the plot or double tap
+  once to start drawing, move the mouse and double tap again to
+  finish drawing.
+
+Move box
+  Click and drag an existing box, the box will be dropped once you let
+  go of the mouse button.
+
+Delete box
+  Tap a box to select it then press BACKSPACE key while the mouse is
+  within the plot area.
+
+To **Move** or **Delete** multiple boxes at once:
+
+Move selection
+  Select box(es) with SHIFT+tap (or another selection tool) then drag
+  anywhere on the plot. Selecting and then dragging on a specific box
+  will move both.
+
+Delete selection
+  Select box(es) with SHIFT+tap (or another selection tool) then press
+  BACKSPACE while the mouse is within the plot area.
+
+.. bokeh-plot:: docs/user_guide/examples/tools_box_edit.py
+    :source-position: none
+
+
+FreehandDrawTool
+~~~~~~~~~~~~~~~~
+
+* name: ``'freehand_draw'``
+* menu icon: |freehand_draw_icon|
+
+The ``FreehandDrawTool`` allows freehand drawing of lines and polygons
+using the ``Patches`` and ``MultiLine`` glyphs, by editing the
+underlying ``ColumnDataSource`` data. Like other drawing tools, the
+renderers that are to be edited must be supplied explicitly as a
+list:
+
+.. code-block:: python
+
+    r = p.multi_line('xs', 'ys' source=source)
+    tool = FreehandDrawTool(renderers=[r])
+
+The tool will automatically modify the columns on the data source
+corresponding to the ``xs`` and ``ys`` values of the glyph. Any
+additional columns in the data source will be padded with the declared
+``empty_value``, when adding a new point. Any newly added patch or
+multi-line will be inserted on the ``ColumnDataSource`` of the first
+supplied renderer.
+
+It is also often useful to limit the number of elements that can be
+drawn, e.g. when specifying a specific number of regions of interest.
+Using the ``num_objects`` property we can ensure that once the limit
+has been reached the oldest patch/multi-line will be popped off the
+queue to make space for the new patch/multi-line being added.
+
+.. raw:: html
+
+    <img src="http://bokeh.pydata.org/static/freehand_draw_keyboard_optimized.gif"
+     width='400px' alt="Animation showing freehand drawing and delete actions">
+
+The animation above shows the supported tool actions, highlighting
+mouse actions with a circle around the cursor and key strokes by
+showing the pressed keys. The ``PolyDrawTool`` can **Draw** and
+**Delete** patches and multi-lines:
+
+Draw patch/multi-line
+  Click and drag to start drawing and release the mouse button to
+  finish drawing
+
+Delete patch/multi-line
+  Tap a line or patch to select it then press BACKSPACE key while the
+  mouse is within the plot area.
+
+ To **Delete** multiple patches/lines at once:
+
+Delete selection
+  Select patches/lines with SHIFT+tap (or another selection tool) then
+  press BACKSPACE while the mouse is within the plot area.
+
+PointDrawTool
+~~~~~~~~~~~~~
+
+* name: ``'point_draw'``
+* menu icon: |point_draw_icon|
+
+The ``PointDrawTool`` allows adding, dragging and deleting point-like
+glyphs (of ``XYGlyph`` type) on one or more renderers by editing the
+underlying ``ColumnDataSource`` data. Like other drawing tools, the
+renderers that are to be edited must be supplied explicitly as a
+list:
+
+.. code-block:: python
+
+    c1 = p.circle('x', 'y', 'width', 'height', source=source)
+    r1 = p.rect('x', 'y', 0.1, 0.1, source=source2)
+    tool = PointDrawTool(renderers=[c1, r1])
+
+The tool will automatically modify the columns on the data source
+corresponding to the ``x`` and ``y`` values of the glyph. Any
+additional columns in the data source will be padded with the declared
+``empty_value``, when adding a new point. Any newly added points will
+be inserted on the ``ColumnDataSource`` of the first supplied
+renderer.
+
+It is also often useful to limit the number of elements that can be
+drawn.  Using the ``num_objects`` property we can ensure that once the
+limit has been reached the oldest point will be popped off the queue
+to make space for the new point being added.
+
+.. raw:: html
+
+    <img src="http://bokeh.pydata.org/static/point_draw_keyboard_optimized.gif"
+     width='400px' alt="Animation showing point draw, drag, select and delete actions">
+
+The animation above shows the supported tool actions, highlighting
+mouse actions with a circle around the cursor and key strokes by
+showing the pressed keys. The PointDrawTool can **Add**, **Move** and
+**Delete** point-like glyphs on plots:
+
+Add point
+  Tap anywhere on the plot
+
+Move point
+  Tap and drag an existing point, the point will be dropped once
+  you let go of the mouse button.
+
+Delete point
+  Tap a point to select it then press BACKSPACE key while the mouse is
+  within the plot area.
+
+To **Move** or **Delete** multiple points at once:
+
+Move selection
+  Select point(s) with SHIFT+tap (or another selection tool) then drag
+  anywhere on the plot. Selecting and then dragging a specific point
+  will move both.
+
+Delete selection
+  Select point(s) with SHIFT+tap (or another selection tool) then
+  press BACKSPACE while the mouse is within the plot area.
+
+.. bokeh-plot:: docs/user_guide/examples/tools_point_draw.py
+    :source-position: none
+
+
+PolyDrawTool
+~~~~~~~~~~~~
+
+* name: ``'poly_draw'``
+* menu icon: |poly_draw_icon|
+
+The ``PolyDrawTool`` allows drawing, selecting and deleting
+``Patches`` and ``MultiLine`` glyphs on one or more renderers by
+editing the underlying ``ColumnDataSource`` data. Like other drawing
+tools, the renderers that are to be edited must be supplied explicitly
+as a list.
+
+The tool will automatically modify the columns on the data source
+corresponding to the ``xs`` and ``ys`` values of the glyph. Any
+additional columns in the data source will be padded with the declared
+``empty_value``, when adding a new point. Any newly added patch or
+multi-line will be inserted on the ``ColumnDataSource`` of the first
+supplied renderer.
+
+It is also often useful to limit the number of elements that can be
+drawn, e.g. when specifying a specific number of regions of interest.
+Using the ``num_objects`` property we can ensure that once the limit
+has been reached the oldest patch/multi-line will be popped off the
+queue to make space for the new patch/multi-line being added.
+
+If a ``vertex_renderer`` with an point-like glyph is supplied the
+PolyDrawTool will use it to display the vertices of the
+multi-lines/patches on all supplied renderers. This also enables the
+ability to snap to existing vertices while drawing.
+
+.. raw:: html
+
+    <img src="http://bokeh.pydata.org/static/poly_draw_keyboard_optimized.gif"
+     width='400px' alt="Animation showing polygon draw, select and delete actions">
+
+The animation above shows the supported tool actions, highlighting
+mouse actions with a circle around the cursor and key strokes by
+showing the pressed keys. The ``PolyDrawTool`` can **Add**, **Move**
+and **Delete** patches and multi-lines:
+
+Add patch/multi-line
+  Double tap to add the first vertex, then use tap to add each
+  subsequent vertex, to finalize the draw action double tap to insert
+  the final vertex or press the ESC key.
+
+Move patch/multi-line
+  Tap and drag an existing patch/multi-line, the point will be dropped
+  once you let go of the mouse button.
+
+Delete patch/multi-line
+  Tap a patch/multi-line to select it then press BACKSPACE key while
+  the mouse is within the plot area.
+
+.. bokeh-plot:: docs/user_guide/examples/tools_poly_draw.py
+    :source-position: none
+
+
+PolyEditTool
+~~~~~~~~~~~~~~
+
+* name: ``'poly_edit'``
+* menu icon: |poly_edit_icon|
+
+The PolyEditTool allows editing the vertices of one or more
+``Patches`` or ``MultiLine`` glyphs. The glyphs to be edited can
+be defined via the ``renderers`` property and the renderer for the
+vertices can be defined via the ``vertex_renderer``, which must
+render a point-like Glyph (of ``XYGlyph`` type).
+
+The tool will automatically modify the columns on the data source
+corresponding to the ``xs`` and ``ys`` values of the glyph. Any
+additional columns in the data source will be padded with the declared
+``empty_value``, when adding a new point.
+
+.. raw:: html
+
+    <img src="http://bokeh.pydata.org/static/poly_edit_keyboard_optimized.gif"
+     width='400px' alt="Animation showing polygon and vertex drag, select and delete actions">
+
+The animation above shows the supported tool actions, highlighting
+mouse actions with a circle around the cursor and key strokes by
+showing the pressed keys. The ``PolyEditTool`` can **Add**, **Move**
+and **Delete** vertices on existing patches and multi-lines:
+
+Show vertices
+  Double tap an existing patch or multi-line
+
+Add vertex
+  Double tap an existing vertex to select it, the tool will draw the
+  next point, to add it tap in a new location. To finish editing
+  and add a point double tap otherwise press the ESC key to cancel.
+
+Move vertex
+  Drag an existing vertex and let go of the mouse button to release
+  it.
+
+Delete vertex
+  After selecting one or more vertices press BACKSPACE while the mouse
+  cursor is within the plot area.
+
+.. bokeh-plot:: docs/user_guide/examples/tools_poly_edit.py
+    :source-position: none
+
 
 .. _userguide_tools_lod:
 
@@ -599,6 +963,7 @@ properties on |Plot| objects that control LOD behavior:
 .. |figure| replace:: :func:`~bokeh.plotting.figure`
 
 .. |HoverTool| replace:: :class:`~bokeh.models.tools.HoverTool`
+.. |CustomJSHover| replace:: :class:`~bokeh.models.tools.CustomJSHover`
 
 .. |NumeralTickFormatter| replace:: :class:`~bokeh.models.formatters.NumeralTickFormatter`
 .. |DatetimeTickFormatter| replace:: :class:`~bokeh.models.formatters.DatetimeTickFormatter`
@@ -639,4 +1004,14 @@ properties on |Plot| objects that control LOD behavior:
 .. |zoom_in_icon| image:: /_images/icons/ZoomIn.png
     :height: 14pt
 .. |zoom_out_icon| image:: /_images/icons/ZoomOut.png
+    :height: 14pt
+.. |box_edit_icon| image:: /_images/icons/BoxEdit.png
+    :height: 14pt
+.. |freehand_draw_icon| image:: /_images/icons/FreehandDraw.png
+    :height: 14pt
+.. |point_draw_icon| image:: /_images/icons/PointDraw.png
+    :height: 14pt
+.. |poly_draw_icon| image:: /_images/icons/PolyDraw.png
+    :height: 14pt
+.. |poly_edit_icon| image:: /_images/icons/PolyEdit.png
     :height: 14pt

@@ -27,7 +27,7 @@ from bokeh.models.glyphs import (
 from bokeh.models.glyphs import (
     Asterisk,
     CircleCross, CircleX, Cross,
-    Diamond, DiamondCross,
+    Dash, Diamond, DiamondCross,
     InvertedTriangle,
     Square, SquareCross, SquareX,
     Triangle,
@@ -172,6 +172,7 @@ def test_Image():
         "dw_units",
         "dh",
         "dh_units",
+        "global_alpha",
         "dilate",
         "color_mapper",
     ], GLYPH)
@@ -193,6 +194,7 @@ def test_ImageRGBA():
         "dw_units",
         "dh",
         "dh_units",
+        "global_alpha",
         "dilate",
     ], GLYPH)
 
@@ -494,6 +496,14 @@ def test_CircleX():
 
 def test_Cross():
     marker = Cross()
+    check_marker_properties(marker)
+    check_fill_properties(marker)
+    check_line_properties(marker)
+    check_properties_existence(marker, MARKER, FILL, LINE, GLYPH)
+
+
+def test_Dash():
+    marker = Dash()
     check_marker_properties(marker)
     check_fill_properties(marker)
     check_line_properties(marker)

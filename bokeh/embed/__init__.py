@@ -5,7 +5,15 @@
 #
 # The full license is in the file LICENSE.txt, distributed with this software.
 #-----------------------------------------------------------------------------
-'''
+''' Provide functions for embedding Bokeh standalone and server content in
+web pages.
+
+.. autofunction:: autoload_static
+.. autofunction:: components
+.. autofunction:: file_html
+.. autofunction:: json_item
+.. autofunction:: server_document
+.. autofunction:: server_session
 
 '''
 
@@ -16,8 +24,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import logging
 log = logging.getLogger(__name__)
-
-from bokeh.util.api import public, internal ; public, internal
 
 #-----------------------------------------------------------------------------
 # Imports
@@ -30,7 +36,7 @@ from bokeh.util.api import public, internal ; public, internal
 # Bokeh imports
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 from .server import server_document
@@ -39,21 +45,13 @@ from .server import server_session
 from .standalone import autoload_static
 from .standalone import components
 from .standalone import file_html
+from .standalone import json_item
 
 __all__ = (
-    'autoload_server',
     'autoload_static',
     'components',
     'file_html',
+    'json_item',
     'server_document',
     'server_session',
 )
-
-# XXXX To be removed
-def autoload_server(model=None, app_path=None, session_id=None, url="default", relative_urls=False, arguments=None):
-    from bokeh.util.deprecation import deprecated
-    deprecated((0, 12, 7), 'bokeh.embed.autoload_server', 'bokeh.embed.server_document or bokeh.embed.server_session')
-    if session_id is None:
-        return server_document(url, relative_urls, "default", arguments)
-    else:
-        return server_session(model, session_id, url, relative_urls, "default", arguments)

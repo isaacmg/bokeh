@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #-----------------------------------------------------------------------------
 # Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
 #
@@ -13,62 +14,43 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import pytest ; pytest
 
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
 
 # Standard library imports
 from mock import patch
-import os
+import re
 
 # External imports
 from PIL import Image
-import selenium.webdriver as webdriver
 
 # Bokeh imports
 from bokeh.models.plots import Plot
 from bokeh.models.ranges import Range1d
+from bokeh.io.export import create_webdriver, terminate_webdriver
+from bokeh.plotting import figure
+from bokeh.resources import Resources
 
 # Module under test
 import bokeh.io.export as bie
 
 #-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
-
-api = {
-
-    PUBLIC: (
-
-        ( 'export_png',  (1, 0, 0) ),
-        ( 'export_svgs', (1, 0, 0) ),
-
-    ), INTERNAL: (
-
-        ( 'get_screenshot_as_png',      (1, 0, 0) ),
-        ( 'get_svgs',                   (1, 0, 0) ),
-        ( 'save_layout_html',           (1, 0, 0) ),
-        ( 'wait_until_render_complete', (1, 0, 0) ),
-
-    ),
-
-}
-
-Test_api = verify_api(bie, api)
-
-#-----------------------------------------------------------------------------
 # Setup
 #-----------------------------------------------------------------------------
 
+@pytest.fixture(scope='module')
+def webdriver():
+    driver = create_webdriver()
+    yield driver
+    terminate_webdriver(driver)
+
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 @pytest.mark.unit
@@ -86,18 +68,13 @@ def test_get_screenshot_as_png():
 
 @pytest.mark.unit
 @pytest.mark.selenium
-def test_get_screenshot_as_png_with_driver():
+def test_get_screenshot_as_png_with_driver(webdriver):
     layout = Plot(x_range=Range1d(), y_range=Range1d(),
                   plot_height=20, plot_width=20, toolbar_location=None,
                   outline_line_color=None, background_fill_color=None,
                   border_fill_color=None)
 
-    driver = webdriver.PhantomJS(service_log_path=os.path.devnull)
-
-    png = bie.get_screenshot_as_png(layout, driver=driver)
-
-    # Have to manually clean up the driver session
-    driver.quit()
+    png = bie.get_screenshot_as_png(layout, driver=webdriver)
 
     assert png.size == (20, 20)
     # a 20x20px image of transparent pixels
@@ -105,23 +82,33 @@ def test_get_screenshot_as_png_with_driver():
 
 @pytest.mark.unit
 @pytest.mark.selenium
-def test_get_screenshot_as_png_large_plot():
+def test_get_screenshot_as_png_large_plot(webdriver):
     layout = Plot(x_range=Range1d(), y_range=Range1d(),
                   plot_height=800, plot_width=800, toolbar_location=None,
                   outline_line_color=None, background_fill_color=None,
                   border_fill_color=None)
 
-    driver = webdriver.PhantomJS(service_log_path=os.path.devnull)
-    assert driver.get_window_size() == {'width': 400, 'height': 300}
-
-    bie.get_screenshot_as_png(layout, driver=driver)
+    bie.get_screenshot_as_png(layout, driver=webdriver)
 
     # LC: Although the window size doesn't match the plot dimensions (unclear
     # why), the window resize allows for the whole plot to be captured
-    assert driver.get_window_size() == {'width': 1366, 'height': 768}
+    assert webdriver.get_window_size() == {'width': 1366, 'height': 768}
 
-    # Have to manually clean up the driver session
-    driver.quit()
+@pytest.mark.unit
+@pytest.mark.selenium
+def test_get_screenshot_as_png_with_unicode_minified(webdriver):
+    p = figure(title="유니 코드 지원을위한 작은 테스트")
+
+    png = bie.get_screenshot_as_png(p, driver=webdriver, resources=Resources(mode="inline", minified=True))
+    assert len(png.tobytes()) > 0
+
+@pytest.mark.unit
+@pytest.mark.selenium
+def test_get_screenshot_as_png_with_unicode_unminified(webdriver):
+    p = figure(title="유니 코드 지원을위한 작은 테스트")
+
+    png = bie.get_screenshot_as_png(p, driver=webdriver, resources=Resources(mode="inline", minified=False))
+    assert len(png.tobytes()) > 0
 
 @pytest.mark.unit
 @pytest.mark.selenium
@@ -134,45 +121,52 @@ def test_get_svgs_no_svg_present():
 
 @pytest.mark.unit
 @pytest.mark.selenium
-def test_get_svgs_with_svg_present():
+def test_get_svgs_with_svg_present(webdriver):
+
+    def fix_ids(svg):
+        svg = re.sub(r'id="\w{12}"', 'id="X"', svg)
+        svg = re.sub(r'url\(#\w{12}\)', 'url(#X)', svg)
+        return svg
+
     layout = Plot(x_range=Range1d(), y_range=Range1d(),
                   plot_height=20, plot_width=20, toolbar_location=None,
                   outline_line_color=None, border_fill_color=None,
                   background_fill_color="red", output_backend="svg")
 
-    svgs = bie.get_svgs(layout)
-    assert svgs[0] == ('<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
-                       'width="20" height="20" style="width: 20px; height: 20px;"><defs/><g><g transform="scale(1,1) '
-                       'translate(0.5,0.5)"><rect fill="#FFFFFF" stroke="none" x="0" y="0" width="20" height="20"/>'
-                       '<rect fill="red" stroke="none" x="5" y="5" width="10" height="10"/><g/><g/><g/><g/></g></g></svg>')
+    svg0 = fix_ids(bie.get_svgs(layout, driver=webdriver)[0])
+    svg1 = fix_ids(bie.get_svgs(layout, driver=webdriver)[0])
 
-@pytest.mark.unit
-@pytest.mark.selenium
-def test_get_svgs_with_svg_present_with_driver():
-    layout = Plot(x_range=Range1d(), y_range=Range1d(),
-                  plot_height=20, plot_width=20, toolbar_location=None,
-                  outline_line_color=None, border_fill_color=None,
-                  background_fill_color="red", output_backend="svg")
+    svg2 = (
+        '<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+        'width="20" height="20" style="width: 20px; height: 20px;">'
+        '<defs>'
+            '<clipPath id="X"><path fill="none" stroke="none" d=" M 5 5 L 15 5 L 15 15 L 5 15 L 5 5 Z"/></clipPath>'
+            '<clipPath id="X"><path fill="none" stroke="none" d=" M 5 5 L 15 5 L 15 15 L 5 15 L 5 5 Z"/></clipPath>'
+        '</defs>'
+        '<g>'
+            '<g transform="scale(1,1) translate(0.5,0.5)">'
+                '<rect fill="#FFFFFF" stroke="none" x="0" y="0" width="20" height="20"/>'
+                '<rect fill="red" stroke="none" x="5" y="5" width="10" height="10"/>'
+                '<g/>'
+                '<g clip-path="url(#X)"><g/></g>'
+                '<g clip-path="url(#X)"><g/></g>'
+                '<g/>'
+            '</g>'
+        '</g>'
+        '</svg>'
+    )
 
-    driver = webdriver.PhantomJS(service_log_path=os.path.devnull)
+    assert svg0 == svg2
+    assert svg1 == svg2
 
-    svgs = bie.get_svgs(layout)
-
-    # Have to manually clean up the driver session
-    driver.quit()
-
-    assert svgs[0] == ('<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
-                       'width="20" height="20" style="width: 20px; height: 20px;"><defs/><g><g transform="scale(1,1) '
-                       'translate(0.5,0.5)"><rect fill="#FFFFFF" stroke="none" x="0" y="0" width="20" height="20"/>'
-                       '<rect fill="red" stroke="none" x="5" y="5" width="10" height="10"/><g/><g/><g/><g/></g></g></svg>')
-
-def test_save_layout_html_resets_plot_dims():
+def test_get_layout_html_resets_plot_dims():
     initial_height, initial_width = 200, 250
 
     layout = Plot(x_range=Range1d(), y_range=Range1d(),
                   plot_height=initial_height, plot_width=initial_width)
 
-    bie.save_layout_html(layout, height=100, width=100)
+    bie.get_layout_html(layout, height=100, width=100)
+
     assert layout.plot_height == initial_height
     assert layout.plot_width == initial_width
 

@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -12,9 +12,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import pytest ; pytest
-
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
 
 #-----------------------------------------------------------------------------
 # Imports
@@ -31,35 +28,11 @@ from bokeh.colors import RGB
 import bokeh.colors.hsl as bch
 
 #-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
-
-api = {
-
-    PUBLIC: (
-
-        ( 'HSL',          (1, 0, 0) ),
-        ( 'HSL.copy',     (1, 0, 0) ),
-        ( 'HSL.from_hsl', (1, 0, 0) ),
-        ( 'HSL.from_rgb', (1, 0, 0) ),
-        ( 'HSL.to_css',   (1, 0, 0) ),
-        ( 'HSL.to_hsl',   (1, 0, 0) ),
-        ( 'HSL.to_rgb',   (1, 0, 0) ),
-
-    ), INTERNAL: (
-
-    )
-
-}
-
-Test_api = verify_api(bch, api)
-
-#-----------------------------------------------------------------------------
 # Setup
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 class Test_HSL(object):
@@ -168,7 +141,7 @@ class Test_HSL(object):
         assert c2.b == 61
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------

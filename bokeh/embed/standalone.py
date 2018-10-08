@@ -17,39 +17,35 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 log = logging.getLogger(__name__)
 
-from bokeh.util.api import public, internal ; public, internal
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
 
 # Standard library imports
-from contextlib import contextmanager
-import re
+from collections import Sequence
 
 # External imports
+from six import string_types
 
 # Bokeh imports
-from ..core.templates import AUTOLOAD_JS, AUTOLOAD_TAG, FILE
+from ..core.templates import AUTOLOAD_JS, AUTOLOAD_TAG, FILE, ROOT_DIV, MACROS
 from ..document.document import DEFAULT_TITLE, Document
 from ..model import Model
-from ..settings import settings
 from ..util.compiler import bundle_all_models
 from ..util.string import encode_utf8
 from .bundle import bundle_for_objs_and_resources
-from .util import FromCurdoc
-from .util import (check_models_or_docs, check_one_model_or_doc, div_for_render_item, find_existing_docs, html_page_for_render_items,
-                   script_for_render_items, standalone_docs_json_and_render_items, wrap_in_onload, wrap_in_script_tag)
+from .elements import html_page_for_render_items, script_for_render_items
+from .util import FromCurdoc, OutputDocumentFor, standalone_docs_json, standalone_docs_json_and_render_items
+from .wrappers import wrap_in_onload, wrap_in_script_tag
 
 #-----------------------------------------------------------------------------
 # Globals and constants
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
-@public((1,0,0))
 def autoload_static(model, resources, script_path):
     ''' Return JavaScript code and a script tag that can be used to embed
     Bokeh Plots.
@@ -76,33 +72,36 @@ def autoload_static(model, resources, script_path):
     # if resources.mode == 'inline':
     #     raise ValueError("autoload_static() requires non-inline resources")
 
-    model = check_one_model_or_doc(model)
+    if isinstance(model, Model):
+        models = [model]
+    elif isinstance (model, Document):
+        models = model.roots
+    else:
+        raise ValueError("autoload_static expects a single Model or Document")
 
-    with _ModelInDocument([model]):
-        (docs_json, render_items) = standalone_docs_json_and_render_items([model])
+    with OutputDocumentFor(models):
+        (docs_json, [render_item]) = standalone_docs_json_and_render_items([model])
 
     bundle = bundle_all_models()
-    script = script_for_render_items(docs_json, render_items)
-    item = render_items[0]
+    script = script_for_render_items(docs_json, [render_item])
+
+    (modelid, elementid) = list(render_item.roots.to_json().items())[0]
 
     js = wrap_in_onload(AUTOLOAD_JS.render(
         js_urls = resources.js_files,
         css_urls = resources.css_files,
         js_raw = resources.js_raw + [bundle, script],
         css_raw = resources.css_raw_str,
-        elementid = item['elementid'],
+        elementid = elementid,
     ))
 
     tag = AUTOLOAD_TAG.render(
         src_path = script_path,
-        elementid = item['elementid'],
-        modelid = item.get('modelid', ''),
-        docid = item.get('docid', ''),
+        elementid = elementid,
     )
 
     return encode_utf8(js), encode_utf8(tag)
 
-@public((1,0,0))
 def components(models, wrap_script=True, wrap_plot_info=True, theme=FromCurdoc):
     ''' Return HTML components to embed a Bokeh plot. The data for the plot is
     stored directly in the returned HTML.
@@ -129,6 +128,9 @@ def components(models, wrap_script=True, wrap_plot_info=True, theme=FromCurdoc):
         <script src="http://cdn.pydata.org/bokeh/release/bokeh-x.y.z.min.js"></script>
         <script src="http://cdn.pydata.org/bokeh/release/bokeh-widgets-x.y.z.min.js"></script>
         <script src="http://cdn.pydata.org/bokeh/release/bokeh-tables-x.y.z.min.js"></script>
+
+    Note that in Jupyter Notebooks, it is not possible to use components and show in
+    the same notebook cell.
 
     Args:
         models (Model|list|dict|tuple) :
@@ -195,8 +197,9 @@ def components(models, wrap_script=True, wrap_plot_info=True, theme=FromCurdoc):
     # 1) Convert single items and dicts into list
 
     was_single_object = isinstance(models, Model) or isinstance(models, Document)
-    # converts single to list
-    models = check_models_or_docs(models, allow_dict=True)
+
+    models = _check_models_or_docs(models)
+
     # now convert dict to list, saving keys in the same order
     model_keys = None
     if isinstance(models, dict):
@@ -208,19 +211,22 @@ def components(models, wrap_script=True, wrap_plot_info=True, theme=FromCurdoc):
         models = values
 
     # 2) Append models to one document. Either pre-existing or new and render
-    with _ModelInDocument(models, apply_theme=theme):
-        (docs_json, render_items) = standalone_docs_json_and_render_items(models)
+    with OutputDocumentFor(models, apply_theme=theme):
+        (docs_json, [render_item]) = standalone_docs_json_and_render_items(models)
 
     script  = bundle_all_models()
-    script += script_for_render_items(docs_json, render_items)
+    script += script_for_render_items(docs_json, [render_item])
     if wrap_script:
         script = wrap_in_script_tag(script)
     script = encode_utf8(script)
 
+    def div_for_root(root):
+        return ROOT_DIV.render(root=root, macros=MACROS)
+
     if wrap_plot_info:
-        results = list(div_for_render_item(item) for item in render_items)
+        results = list(div_for_root(root) for root in render_item.roots)
     else:
-        results = render_items
+        results = render_item.roots
 
     # 3) convert back to the input shape
 
@@ -234,13 +240,13 @@ def components(models, wrap_script=True, wrap_plot_info=True, theme=FromCurdoc):
     else:
         return script, tuple(results)
 
-@public((1,0,0))
 def file_html(models,
               resources,
               title=None,
               template=FILE,
               template_variables={},
-              theme=FromCurdoc):
+              theme=FromCurdoc,
+              suppress_callback_warning=False):
     ''' Return an HTML document that embeds Bokeh Model or Document objects.
 
     The data for the plot is stored directly in the returned HTML, with
@@ -248,14 +254,17 @@ def file_html(models,
     customizing the jinja2 template.
 
     Args:
-        models (Model or Document or list) : Bokeh object or objects to render
+        models (Model or Document or seq[Model]) : Bokeh object or objects to render
             typically a Model or Document
 
-        resources (Resources or tuple(JSResources or None, CSSResources or None)) : i
+        resources (Resources or tuple(JSResources or None, CSSResources or None)) :
             A resource configuration for Bokeh JS & CSS assets.
 
-        title (str, optional) : a title for the HTML document ``<title>`` tags or None. (default: None)
-            If None, attempt to automatically find the Document title from the given plot objects.
+        title (str, optional) :
+            A title for the HTML document ``<title>`` tags or None. (default: None)
+
+            If None, attempt to automatically find the Document title from the given
+            plot objects.
 
         template (Template, optional) : HTML document template (default: FILE)
             A Jinja2 Template, see bokeh.core.templates.FILE for the required
@@ -271,65 +280,134 @@ def file_html(models,
             already specified in the document. Any other value must be an
             instance of the ``Theme`` class.
 
+        suppress_callback_warning (bool, optional) :
+            Normally generating standalone HTML from a Bokeh Document that has
+            Python callbacks will result in a warning stating that the callbacks
+            cannot function. However, this warning can be suppressed by setting
+            this value to True (default: False)
+
     Returns:
         UTF-8 encoded HTML
 
     '''
-    models = check_models_or_docs(models)
+    if isinstance(models, Model):
+        models = [models]
 
-    with _ModelInDocument(models, apply_theme=theme):
-        (docs_json, render_items) = standalone_docs_json_and_render_items(models)
+    if isinstance(models, Document):
+        models = models.roots
+
+    with OutputDocumentFor(models, apply_theme=theme) as doc:
+        (docs_json, render_items) = standalone_docs_json_and_render_items(models, suppress_callback_warning=suppress_callback_warning)
         title = _title_from_models(models, title)
-        bundle = bundle_for_objs_and_resources(models, resources)
+        bundle = bundle_for_objs_and_resources([doc], resources)
         return html_page_for_render_items(bundle, docs_json, render_items, title=title,
-                                           template=template, template_variables=template_variables)
+                                          template=template, template_variables=template_variables)
+
+def json_item(model, target=None, theme=FromCurdoc):
+    ''' Return a JSON block that can be used to embed standalone Bokeh conent.
+
+    Args:
+        model (Model) :
+            The Bokeh object to embed
+
+        target (string, optional)
+            A div id to embd the model into. If None, the target id must
+            be supplied in the JavaScript call.
+
+        theme (Theme, optional) :
+            Defaults to the ``Theme`` instance in the current document.
+            Setting this to ``None`` uses the default theme or the theme
+            already specified in the document. Any other value must be an
+            instance of the ``Theme`` class.
+
+    Returns:
+        JSON-like
+
+    This function returns a JSON block that can be consumed by the BokehJS
+    function ``Bokeh.embed.embed_item``. As an example, a Flask endpoint for
+    ``/plot`` might return the following content to embed a Bokeh plot into
+    a div with id *"myplot"*:
+
+    .. code-block:: python
+
+        @app.route('/plot')
+        def plot():
+            p = make_plot('petal_width', 'petal_length')
+            return json.dumps(json_item(p, "myplot"))
+
+    Then a web page can retrieve this JSON and embed the plot by calling
+    ``Bokeh.embed.embed_item``:
+
+    .. code-block:: html
+
+        <script>
+        fetch('/plot')
+            .then(function(response) { return response.json(); })
+            .then(function(item) { Bokeh.embed.embed_item(item); })
+        </script>
+
+    Alternatively, if is more convenient to suppluy the target div id directly
+    in the page source, that is also possible. If `target_id` is omitted in the
+    call to this function:
+
+    .. code-block:: python
+
+        return json.dumps(json_item(p))
+
+    Then the value passed to ``embed_item`` is used:
+
+    .. code-block:: javascript
+
+        Bokeh.embed.embed_item(item, "myplot");
+
+    '''
+    with OutputDocumentFor([model], apply_theme=theme) as doc:
+        doc.title = ""
+        docs_json = standalone_docs_json([model])
+
+    doc = list(docs_json.values())[0]
+    root_id = doc['roots']['root_ids'][0]
+
+    return {
+        'target_id' : target,
+        'root_id'   : root_id,
+        'doc'       : doc,
+    }
+
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
 # Private API
 #-----------------------------------------------------------------------------
 
-@contextmanager
-def _ModelInDocument(models, apply_theme=None):
-    doc = find_existing_docs(models)
-    old_theme = doc.theme
+def _check_models_or_docs(models):
+    '''
 
-    if apply_theme is FromCurdoc:
-        from ..io import curdoc; curdoc
-        doc.theme = curdoc().theme
-    elif apply_theme is not None:
-        doc.theme = apply_theme
+    '''
+    input_type_valid = False
 
-    models_to_dedoc = _add_doc_to_models(doc, models)
+    # Check for single item
+    if isinstance(models, (Model, Document)):
+        models = [models]
 
-    if settings.perform_document_validation():
-        doc.validate()
+    # Check for sequence
+    if isinstance(models, Sequence) and all(isinstance(x, (Model, Document)) for x in models):
+        input_type_valid = True
 
-    yield doc
+    if isinstance(models, dict) and \
+        all(isinstance(x, string_types) for x in models.keys()) and \
+        all(isinstance(x, (Model, Document)) for x in models.values()):
+        input_type_valid = True
 
-    for model in models_to_dedoc:
-        doc.remove_root(model, apply_theme)
-    doc.theme = old_theme
+    if not input_type_valid:
+        raise ValueError(
+            'Input must be a Model, a Document, a Sequence of Models and Document, or a dictionary from string to Model and Document'
+        )
 
-def _add_doc_to_models(doc, models):
-    models_to_dedoc = []
-    for model in models:
-        if isinstance(model, Model):
-            if model.document is None:
-                try:
-                    doc.add_root(model)
-                    models_to_dedoc.append(model)
-                except RuntimeError as e:
-                    child = re.search('\((.*)\)', str(e)).group(0)
-                    msg = ('Sub-model {0} of the root model {1} is already owned '
-                           'by another document (Models must be owned by only a '
-                           'single document). This may indicate a usage '
-                           'error.'.format(child, model))
-                    raise RuntimeError(msg)
-    return models_to_dedoc
+    return models
 
 def _title_from_models(models, title):
     # use override title

@@ -1,10 +1,10 @@
 import numpy as np
 
-from bokeh.models import ColumnDataSource, DataRange1d, Plot, LinearAxis, Grid, HoverTool
+from bokeh.models import ColumnDataSource, Plot, LinearAxis, Grid, HoverTool
 from bokeh.models.widgets import Tabs, Panel, Paragraph
 from bokeh.models.layouts import Column
 from bokeh.models.glyphs import (
-    AnnularWedge, Annulus, Arc, Bezier, Circle, ImageURL, Line, MultiLine, Oval,
+    AnnularWedge, Annulus, Arc, Bezier, Circle, ImageURL, Line, MultiLine, Oval, Hex,
     Patch, Patches, Quad, Quadratic, Ray, Rect, Segment, Square, Text, Wedge, CircleX, Triangle,
     Cross, Diamond, InvertedTriangle, SquareX, Asterisk, SquareCross, DiamondCross, CircleCross, X
 )
@@ -34,9 +34,6 @@ source = ColumnDataSource(dict(
     yp01 = y + 0.1,
     ym01 = y - 0.1,
 ))
-
-xdr = DataRange1d()
-ydr = DataRange1d()
 
 def screen(value):
     return dict(value=value, units="screen")
@@ -75,10 +72,11 @@ markers = [
     ("cross", Cross(x="x", y="y", size="sizes", line_color="#E6550D", fill_color=None, line_width=2)),
     ("asterisk", Asterisk(x="x", y="y", size="sizes", line_color="#F0027F", fill_color=None, line_width=2)),
     ("x", X(x="x", y="y", size="sizes", line_color="thistle", fill_color=None, line_width=2)),
+    ("hex", Hex(x="x", y="y", size="sizes", line_color="#99D594", line_width=2)),
 ]
 
 def make_tab(title, glyph):
-    plot = Plot(x_range=xdr, y_range=ydr)
+    plot = Plot()
     plot.title.text = title
 
     plot.add_glyph(source, glyph)

@@ -17,8 +17,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 log = logging.getLogger(__name__)
 
-from bokeh.util.api import public, internal ; public, internal
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -34,17 +32,17 @@ from ..resources import DEFAULT_SERVER_HTTP_URL
 from ..util.serialization import make_id
 from ..util.string import encode_utf8, format_docstring
 from .bundle import bundle_for_objs_and_resources
-from .util import html_page_for_render_items
+from .elements import html_page_for_render_items
+from .util import RenderItem
 
 #-----------------------------------------------------------------------------
 # Globals and constants
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
-@public((1,0,0))
 def server_document(url="default", relative_urls=False, resources="default", arguments=None):
     ''' Return a script tag that embeds content from a Bokeh server.
 
@@ -106,8 +104,7 @@ def server_document(url="default", relative_urls=False, resources="default", arg
 
     return encode_utf8(tag)
 
-@public((1,0,0))
-def server_session(model, session_id, url="default", relative_urls=False, resources="default", arguments=None):
+def server_session(model=None, session_id=None, url="default", relative_urls=False, resources="default"):
     ''' Return a script tag that embeds content from a specific existing session on
     a Bokeh server.
 
@@ -121,11 +118,13 @@ def server_session(model, session_id, url="default", relative_urls=False, resour
         function for different or multiple page loads.
 
     Args:
-        model (Model) :
-            The object to render from the session
+        model (Model or None, optional) :
+            The object to render from the session, or None. (default: None)
+
+            If None, the entire document will be rendered.
 
         session_id (str) :
-            A server session ID (default: None)
+            A server session ID
 
         url (str, optional) :
             A URL to a Bokeh application on a Bokeh server (default: "default")
@@ -154,10 +153,6 @@ def server_session(model, session_id, url="default", relative_urls=False, resour
             files you'll load separately are of the same version as that of the
             server's, otherwise the rendering may not work correctly.
 
-        arguments (dict[str, str], optional) :
-            A dictionary of key/values to be passed as HTTP request arguments
-            to Bokeh application code (default: None)
-
     Returns:
         A ``<script>`` tag that will embed content from a Bokeh Server.
 
@@ -168,38 +163,40 @@ def server_session(model, session_id, url="default", relative_urls=False, resour
             probably not desired.
 
     '''
+    if session_id is None:
+        raise ValueError("Must supply a session_id")
+
     url = _clean_url(url)
 
     app_path = _get_app_path(url)
 
     elementid = make_id()
+    modelid = "" if model is None else model._id
     src_path = _src_path(url, elementid)
 
     src_path += _process_app_path(app_path)
     src_path += _process_relative_urls(relative_urls, url)
     src_path += _process_session_id(session_id)
     src_path += _process_resources(resources)
-    src_path += _process_arguments(arguments)
 
     tag = AUTOLOAD_TAG.render(
         src_path  = src_path,
         app_path  = app_path,
         elementid = elementid,
-        modelid   = model._id,
+        modelid   = modelid,
     )
 
     return encode_utf8(tag)
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
-@internal((1,0,0))
-def server_html_page_for_session(session_id, resources, title, template=FILE, template_variables=None):
+def server_html_page_for_session(session, resources, title, template=FILE, template_variables=None):
     '''
 
     Args:
-        session_id (str) :
+        session (ServerSession) :
 
         resources (Resources) :
 
@@ -213,19 +210,19 @@ def server_html_page_for_session(session_id, resources, title, template=FILE, te
         str
 
     '''
-    elementid = make_id()
-    render_items = [{
-        'sessionid' : session_id,
-        'elementid' : elementid,
-        'use_for_title' : True
-        # no 'modelid' implies the entire session document
-    }]
+    render_item = RenderItem(
+        sessionid = session.id,
+        roots = session.document.roots,
+        use_for_title = True,
+    )
 
     if template_variables is None:
         template_variables = {}
 
     bundle = bundle_for_objs_and_resources(None, resources)
-    return html_page_for_render_items(bundle, {}, render_items, title, template=template, template_variables=template_variables)
+    html = html_page_for_render_items(bundle, {}, [render_item], title,
+        template=template, template_variables=template_variables)
+    return html
 
 #-----------------------------------------------------------------------------
 # Private API

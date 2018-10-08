@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -17,8 +17,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 log = logging.getLogger(__name__)
 
-from bokeh.util.api import public, internal ; public, internal
-
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
@@ -35,11 +33,14 @@ from .color import Color
 # Globals and constants
 #-----------------------------------------------------------------------------
 
+__all__ = (
+    'HSL',
+)
+
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
-@public((1,0,0))
 class HSL(Color):
     ''' Represent colors by specifying their Hue, Saturation, and Value.
 
@@ -70,7 +71,6 @@ class HSL(Color):
         self.l = l
         self.a = a
 
-    @public((1,0,0))
     def copy(self):
         ''' Return a copy of this color value.
 
@@ -81,7 +81,6 @@ class HSL(Color):
         return HSL(self.h, self.s, self.l, self.a)
 
     @classmethod
-    @public((1,0,0))
     def from_hsl(cls, value):
         ''' Copy an HSL color from another HSL color value.
 
@@ -96,7 +95,6 @@ class HSL(Color):
         return value.copy()
 
     @classmethod
-    @public((1,0,0))
     def from_rgb(cls, value):
         ''' Create an HSL color from an RGB color value.
 
@@ -110,7 +108,6 @@ class HSL(Color):
         '''
         return value.to_hsl()
 
-    @public((1,0,0))
     def to_css(self):
         ''' Generate the CSS representation of this HSL color.
 
@@ -123,7 +120,6 @@ class HSL(Color):
         else:
             return "hsla(%d, %s%%, %s%%, %s)" % (self.h, self.s*100, self.l*100, self.a)
 
-    @public((1,0,0))
     def to_hsl(self):
         ''' Return a HSL copy for this HSL color.
 
@@ -133,7 +129,6 @@ class HSL(Color):
         '''
         return self.copy()
 
-    @public((1,0,0))
     def to_rgb(self):
         ''' Return a corresponding :class:`~bokeh.colors.rgb.RGB` color for
         this HSL color.
@@ -147,7 +142,7 @@ class HSL(Color):
         return RGB(round(r*255), round(g*255), round(b*255), self.a)
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------

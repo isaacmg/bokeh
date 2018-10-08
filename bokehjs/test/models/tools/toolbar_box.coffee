@@ -1,15 +1,18 @@
 {expect} = require "chai"
-utils = require "../../utils"
 
-{Document} = utils.require("document")
+{Document} = require("document")
 
-{LayoutDOM} = utils.require("models/layouts/layout_dom")
-{ToolbarBox} = utils.require("models/tools/toolbar_box")
-{Toolbar} = utils.require("models/tools/toolbar")
-{ResetTool} = utils.require("models/tools/actions/reset_tool")
-{SaveTool} = utils.require("models/tools/actions/save_tool")
-{CrosshairTool} = utils.require("models/tools/inspectors/crosshair_tool")
-{HoverTool} = utils.require("models/tools/inspectors/hover_tool")
+{LayoutDOM} = require("models/layouts/layout_dom")
+{ToolbarBox, ProxyToolbar} = require("models/tools/toolbar_box")
+{Toolbar} = require("models/tools/toolbar")
+{ToolProxy} = require("models/tools/tool_proxy")
+{ResetTool} = require("models/tools/actions/reset_tool")
+{SaveTool} = require("models/tools/actions/save_tool")
+{SelectTool, SelectToolView} = require("models/tools/gestures/select_tool")
+{PanTool} = require("models/tools/gestures/pan_tool")
+{TapTool} = require("models/tools/gestures/tap_tool")
+{CrosshairTool} = require("models/tools/inspectors/crosshair_tool")
+{HoverTool} = require("models/tools/inspectors/hover_tool")
 
 describe "ToolbarBoxView", ->
 
@@ -38,6 +41,16 @@ describe "ToolbarBoxView", ->
     box_view = new box.default_view({model: box, parent: null})
     expect(box_view.get_height()).to.be.null
 
+
+class MultiToolView extends SelectToolView
+
+class MultiTool extends SelectTool
+  default_view: MultiToolView
+  type: "MultiTool"
+  icon: "Multi Tool"
+  tool_name: "Multi Tool"
+  event_type: ["tap", "pan"]
+
 describe "ToolbarBox", ->
 
   it "should be an instance of LayoutDOM", ->
@@ -61,3 +74,21 @@ describe "ToolbarBox", ->
     box = new ToolbarBox({tools: [hover1, hover2, crosshair1, crosshair2]})
     expect(box._toolbar.inspectors.length).equal 2
   ###
+
+
+describe "ProxyToolbar", ->
+
+  describe "_init_tools method", ->
+
+    beforeEach ->
+      @multi = new MultiTool()
+      @pan = new PanTool()
+      @tap = new TapTool()
+
+    it "should have proxied multi tool in gestures", ->
+      toolbar = new ProxyToolbar({tools:[@multi, @tap, @pan]})
+      expect(toolbar.gestures['multi'].tools.length).to.be.equal(1)
+      expect(toolbar.gestures['multi'].tools[0]).to.be.an.instanceof(ToolProxy)
+      expect(toolbar.gestures['multi'].tools[0].computed_icon).to.be.equal('Multi Tool')
+      expect(toolbar.gestures['multi'].tools[0].tools.length).to.be.equal(1)
+      expect(toolbar.gestures['multi'].tools[0].tools[0]).to.be.equal(@multi)

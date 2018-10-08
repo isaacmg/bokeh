@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -18,18 +18,25 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 log = logging.getLogger(__name__)
 
-from bokeh.util.api import public, internal ; public, internal
-
 #-----------------------------------------------------------------------------
-# Public API
+# Imports
 #-----------------------------------------------------------------------------
 
+# Standard library imports
+
+# External imports
+
+# Bokeh imports
 from .color import Color
 from .hsl import HSL
 from .rgb import RGB
 
 from . import groups
 from . import named
+
+#-----------------------------------------------------------------------------
+# Globals and constants
+#-----------------------------------------------------------------------------
 
 __all__ = (
     'Color',
@@ -38,6 +45,18 @@ __all__ = (
     'groups',
     'named',
 )
+
+#-----------------------------------------------------------------------------
+# General API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Dev API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Private API
+#-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
 # Code

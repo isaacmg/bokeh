@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Copyright (c) 2012 - 2017, Anaconda, Inc. All rights reserved.
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
 #
 # Powered by the Bokeh Development Team.
 #
@@ -12,9 +12,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import pytest ; pytest
-
-from bokeh.util.api import INTERNAL, PUBLIC ; INTERNAL, PUBLIC
-from bokeh.util.testing import verify_api ; verify_api
 
 #-----------------------------------------------------------------------------
 # Imports
@@ -32,44 +29,18 @@ from bokeh.client.states import NOT_YET_CONNECTED
 import bokeh.client.connection as bcc
 
 #-----------------------------------------------------------------------------
-# API Definition
-#-----------------------------------------------------------------------------
-
-api = {
-
-    PUBLIC: (
-
-    ), INTERNAL: (
-
-        ( 'ClientConnection',                     (1, 0, 0) ),
-        ( 'ClientConnection.connected.fget',      (1, 0, 0) ),
-        ( 'ClientConnection.io_loop.fget',        (1, 0, 0) ),
-        ( 'ClientConnection.url.fget',            (1, 0, 0) ),
-        ( 'ClientConnection.connect',             (1, 0, 0) ),
-        ( 'ClientConnection.close',               (1, 0, 0) ),
-        ( 'ClientConnection.force_roundtrip',     (1, 0, 0) ),
-        ( 'ClientConnection.loop_until_closed',   (1, 0, 0) ),
-        ( 'ClientConnection.pull_doc',            (1, 0, 0) ),
-        ( 'ClientConnection.push_doc',            (1, 0, 0) ),
-        ( 'ClientConnection.request_server_info', (1, 0, 0) ),
-        ( 'ClientConnection.send_message',        (1, 0, 0) ),
-
-    )
-
-}
-
-Test_api = verify_api(bcc, api)
-
-#-----------------------------------------------------------------------------
 # Setup
 #-----------------------------------------------------------------------------
 
+class FakeSess(object):
+    id = "session_id"
+
 #-----------------------------------------------------------------------------
-# Public API
+# General API
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# Internal API
+# Dev API
 #-----------------------------------------------------------------------------
 
 class Test_ClientConnection(object):
@@ -82,9 +53,34 @@ class Test_ClientConnection(object):
 
         assert c._session == "session"
         assert isinstance(c._state, NOT_YET_CONNECTED)
-        assert c._until_predicate == None
-        assert c._server_info == None
+        assert c._until_predicate is None
+        assert c._server_info is None
+        assert c._arguments is None
+
+    def test_creation_with_arguments(self):
+        c = bcc.ClientConnection("session", "wsurl", arguments=dict(foo="bar"))
+        assert c.url == "wsurl"
+        assert c.connected == False
+        assert isinstance(c.io_loop, IOLoop)
+
+        assert c._session == "session"
+        assert isinstance(c._state, NOT_YET_CONNECTED)
+        assert c._until_predicate is None
+        assert c._server_info is None
+        assert c._arguments == dict(foo="bar")
+
+    def test__versioned_url(self):
+        c = bcc.ClientConnection(FakeSess(), "wsurl")
+        assert c._versioned_url() == "wsurl?bokeh-protocol-version=1.0&bokeh-session-id=session_id"
+
+    def test__versioned_url_with_arguments(self):
+        c = bcc.ClientConnection(FakeSess(), "wsurl", arguments=dict(foo="bar"))
+        assert c._versioned_url() == "wsurl?bokeh-protocol-version=1.0&bokeh-session-id=session_id&foo=bar"
 
 #-----------------------------------------------------------------------------
 # Private API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Code
 #-----------------------------------------------------------------------------

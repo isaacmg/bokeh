@@ -1,26 +1,63 @@
+#-----------------------------------------------------------------------------
+# Copyright (c) 2012 - 2018, Anaconda, Inc. All rights reserved.
+#
+# Powered by the Bokeh Development Team.
+#
+# The full license is in the file LICENSE.txt, distributed with this software.
+#-----------------------------------------------------------------------------
 ''' Provide a base class for all objects (called Bokeh Models) that can go in
 a Bokeh |Document|.
 
 '''
-from __future__ import absolute_import, print_function
+#-----------------------------------------------------------------------------
+# Boilerplate
+#-----------------------------------------------------------------------------
+from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 import logging
-logger = logging.getLogger(__file__)
+log = logging.getLogger(__name__)
 
+#-----------------------------------------------------------------------------
+# Imports
+#-----------------------------------------------------------------------------
+
+# Standard library imports
 from json import loads
 from operator import itemgetter
 
-from six import iteritems
+# External imports
+from six import iteritems, string_types
 
+# Bokeh imports
 from .core.json_encoder import serialize_json
 from .core.properties import Any, Dict, Instance, List, String
 from .core.has_props import HasProps, MetaHasProps
 from .core.query import find
+
+from .events import Event
 from .themes import default as default_theme
+
 from .util.callback_manager import PropertyCallbackManager, EventCallbackManager
 from .util.future import with_metaclass
 from .util.serialization import make_id
-from .events import Event
+
+#-----------------------------------------------------------------------------
+# Globals and constants
+#-----------------------------------------------------------------------------
+
+__all__ = (
+    'collect_models',
+    'get_class',
+)
+
+#-----------------------------------------------------------------------------
+# General API
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Dev API
+#-----------------------------------------------------------------------------
 
 def collect_models(*input_values):
     ''' Collect a duplicate-free list of all other Bokeh models referred to by
@@ -93,6 +130,10 @@ def get_class(view_model_name):
         return d[view_model_name]
     else:
         raise KeyError("View model name '%s' not found" % view_model_name)
+
+#-----------------------------------------------------------------------------
+# Dev API
+#-----------------------------------------------------------------------------
 
 class MetaModel(MetaHasProps):
     ''' Specialize the construction of |Model| classes.
@@ -216,6 +257,7 @@ class Model(with_metaclass(MetaModel, HasProps, PropertyCallbackManager, EventCa
     def __init__(self, **kwargs):
         self._id = kwargs.pop("id", make_id())
         self._document = None
+        self._temp_document = None
         super(Model, self).__init__(**kwargs)
         default_theme.apply_to_model(self)
 
@@ -301,12 +343,15 @@ class Model(with_metaclass(MetaModel, HasProps, PropertyCallbackManager, EventCa
 
     """)
 
+    # Properties --------------------------------------------------------------
 
     @property
     def document(self):
         ''' The |Document| this model is attached to (can be ``None``)
 
         '''
+        if self._temp_document is not None:
+            return self._temp_document
         return self._document
 
     @property
@@ -336,9 +381,11 @@ class Model(with_metaclass(MetaModel, HasProps, PropertyCallbackManager, EventCa
                 'id'   : self._id,
             }
 
+    # Public methods ----------------------------------------------------------
+
     def js_on_event(self, event, *callbacks):
 
-        if not isinstance(event, str) and issubclass(event, Event):
+        if not isinstance(event, string_types) and issubclass(event, Event):
             event = event.event_name
 
         if event not in self.js_event_callbacks:
@@ -406,10 +453,16 @@ class Model(with_metaclass(MetaModel, HasProps, PropertyCallbackManager, EventCa
 
         Args:
             attr (str) : an attribute name on this object
-            callback (callable) : a callback function to register
+            *callbacks (callable) : callback functions to register
 
         Returns:
             None
+
+        Example:
+
+        .. code-block:: python
+
+            widget.on_change('value', callback1, callback2, ..., callback_n)
 
         '''
         if attr not in self.properties():
@@ -555,6 +608,13 @@ class Model(with_metaclass(MetaModel, HasProps, PropertyCallbackManager, EventCa
         self._document = doc
         self._update_event_callbacks()
 
+    @staticmethod
+    def _clear_extensions():
+        MetaModel.model_class_reverse_map = {
+            k:v for k,v in MetaModel.model_class_reverse_map.items()
+            if getattr(v, "__implementation__", None) is None
+        }
+
     def _detach_document(self):
         ''' Detach a model from a Bokeh |Document|.
 
@@ -649,32 +709,9 @@ class Model(with_metaclass(MetaModel, HasProps, PropertyCallbackManager, EventCa
 
         return html
 
-    def _repr_pretty(self, p, cycle):
-        '''
-
-        '''
-        name = "%s.%s" % (self.__class__.__module__, self.__class__.__name__)
-        _id = getattr(self, "_id", None)
-
-        if cycle:
-            p.text(name)
-            p.text('(id=')
-            p.pretty(_id)
-            p.text(', ...)')
-        else:
-            with p.group(4, '%s(' % name, ')'):
-                props = self.properties_with_values().items()
-                sorted_props = sorted(props, key=itemgetter(0))
-                all_props = [('id', _id)] + sorted_props
-                for i, (prop, value) in enumerate(all_props):
-                    if i == 0:
-                        p.breakable('')
-                    else:
-                        p.text(',')
-                        p.breakable()
-                    p.text(prop)
-                    p.text('=')
-                    p.pretty(value)
+#-----------------------------------------------------------------------------
+# Private API
+#-----------------------------------------------------------------------------
 
 def _visit_immediate_value_references(value, visitor):
     ''' Visit all references to another Model without recursing into any
@@ -691,7 +728,6 @@ def _visit_immediate_value_references(value, visitor):
 
 
 _common_types = {int, float, str}
-
 
 def _visit_value_and_its_immediate_references(obj, visitor):
     ''' Recurse down Models, HasProps, and Python containers
@@ -717,3 +753,8 @@ def _visit_value_and_its_immediate_references(obj, visitor):
         else:
             # this isn't a Model, so recurse into it
             _visit_immediate_value_references(obj, visitor)
+
+
+#-----------------------------------------------------------------------------
+# Code
+#-----------------------------------------------------------------------------

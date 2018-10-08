@@ -1,59 +1,58 @@
 {expect, assert} = require "chai"
-utils = require "../utils"
 sinon = require 'sinon'
 
-dom = utils.require("core/dom")
-{Tap, MouseMove} = utils.require("core/bokeh_events")
+dom = require("core/dom")
+{Tap, MouseMove} = require("core/bokeh_events")
 
-{CrosshairTool} = utils.require("models/tools/inspectors/crosshair_tool")
-{PanTool} = utils.require("models/tools/gestures/pan_tool")
-{PolySelectTool} = utils.require("models/tools/gestures/poly_select_tool")
-{TapTool} = utils.require("models/tools/gestures/tap_tool")
-{WheelZoomTool} = utils.require("models/tools/gestures/wheel_zoom_tool")
+{CrosshairTool} = require("models/tools/inspectors/crosshair_tool")
+{PanTool} = require("models/tools/gestures/pan_tool")
+{PolySelectTool} = require("models/tools/gestures/poly_select_tool")
+{SelectTool, SelectToolView} = require("models/tools/gestures/select_tool")
+{TapTool} = require("models/tools/gestures/tap_tool")
+{WheelZoomTool} = require("models/tools/gestures/wheel_zoom_tool")
 
-{Canvas} = utils.require("models/canvas/canvas")
-{Document} = utils.require("document")
-{Legend} = utils.require("models/annotations/legend")
-{Plot} = utils.require("models/plots/plot")
-{PlotCanvas} = utils.require("models/plots/plot_canvas")
-{Range1d} = utils.require("models/ranges/range1d")
-{Toolbar} = utils.require("models/tools/toolbar")
-{UIEvents} = utils.require "core/ui_events"
+{Canvas} = require("models/canvas/canvas")
+{Document} = require("document")
+{Legend} = require("models/annotations/legend")
+{Plot} = require("models/plots/plot")
+{PlotCanvas} = require("models/plots/plot_canvas")
+{Range1d} = require("models/ranges/range1d")
+{Toolbar} = require("models/tools/toolbar")
+{UIEvents} = require "core/ui_events"
 
 describe "ui_events module", ->
 
   afterEach ->
-    utils.unstub_canvas()
     UIEvents.prototype._configure_hammerjs.restore()
 
   beforeEach ->
-    utils.stub_canvas()
     sinon.stub(UIEvents.prototype, "_configure_hammerjs")
 
-    @toolbar = new Toolbar()
-    canvas = new Canvas()
-    canvas.document = new Document()
+    doc = new Document()
     @plot = new Plot({
       x_range: new Range1d({start: 0, end: 1})
       y_range: new Range1d({start: 0, end: 1})
-      toolbar: @toolbar
     })
-    @plot_view = new @plot.default_view({model: @plot, parent: null})
-    canvas.document.add_root(@plot)
-    @plot.plot_canvas.attach_document(canvas.document)
-    @plot_canvas_view = new @plot.plot_canvas.default_view({ model: @plot.plot_canvas, parent: @plot_view })
+    doc.add_root(@plot)
+    plot_view = new @plot.default_view({model: @plot, parent: null})
+    @plot_canvas_view = plot_view.plot_canvas_view
     @ui_events = @plot_canvas_view.ui_event_bus
 
   describe "_trigger method", ->
+
+    afterEach ->
+      @spy_trigger.restore()
 
     beforeEach ->
       @spy_trigger = sinon.spy(@ui_events, "trigger")
 
     describe "base_type=move", ->
 
+      afterEach ->
+        @spy_cursor.restore()
+
       beforeEach ->
-        @e = new Event("move")
-        @e.bokeh = {}
+        @e = {type: "move"}
 
         @spy_cursor = sinon.spy(@plot_canvas_view, "set_cursor")
 
@@ -61,7 +60,7 @@ describe "ui_events module", ->
         inspector = new CrosshairTool({active: true})
         @plot.add_tools(inspector)
 
-        @ui_events._trigger(@ui_events.move, @e)
+        @ui_events._trigger(@ui_events.move, @e, {target: null})
 
         assert(@spy_trigger.calledOnce)
         expect(@spy_trigger.args[0]).to.be.deep.equal([@ui_events.move, @e, inspector.id])
@@ -70,12 +69,12 @@ describe "ui_events module", ->
         inspector = new CrosshairTool({active: false})
         @plot.add_tools(inspector)
 
-        @ui_events._trigger(@ui_events.move, @e)
+        @ui_events._trigger(@ui_events.move, @e, {target: null})
 
         assert(@spy_trigger.notCalled)
 
       it "should use default cursor no active inspector", ->
-        @ui_events._trigger(@ui_events.move, @e)
+        @ui_events._trigger(@ui_events.move, @e, {target: null})
 
         assert(@spy_cursor.calledOnce)
         assert(@spy_cursor.calledWith("default"))
@@ -86,7 +85,7 @@ describe "ui_events module", ->
 
         ss = sinon.stub(@ui_events, "_hit_test_frame").returns(false)
 
-        @ui_events._trigger(@ui_events.move, @e)
+        @ui_events._trigger(@ui_events.move, @e, {target: null})
         assert(@spy_cursor.calledOnce)
         assert(@spy_cursor.calledWith("default"))
 
@@ -98,7 +97,7 @@ describe "ui_events module", ->
 
         ss = sinon.stub(@ui_events, "_hit_test_frame").returns(true)
 
-        @ui_events._trigger(@ui_events.move, @e)
+        @ui_events._trigger(@ui_events.move, @e, {target: null})
         assert(@spy_cursor.calledOnce)
         assert(@spy_cursor.calledWith("crosshair"))
 
@@ -110,7 +109,7 @@ describe "ui_events module", ->
 
         ss = sinon.stub(@ui_events, "_hit_test_renderers").returns(legend_view)
 
-        @ui_events._trigger(@ui_events.move, @e)
+        @ui_events._trigger(@ui_events.move, @e, {target: null})
         assert(@spy_cursor.calledOnce)
         assert(@spy_cursor.calledWith("pointer"))
 
@@ -125,7 +124,7 @@ describe "ui_events module", ->
 
         ss = sinon.stub(@ui_events, "_hit_test_renderers").returns(legend_view)
 
-        @ui_events._trigger(@ui_events.move, @e)
+        @ui_events._trigger(@ui_events.move, @e, {target: null})
         assert(@spy_trigger.calledOnce)
         expect(@spy_trigger.args[0]).to.be.deep.equal([@ui_events.move_exit, @e, inspector.id])
         # should also use view renderer cursor and not inspector cursor
@@ -137,19 +136,17 @@ describe "ui_events module", ->
     describe "base_type=tap", ->
 
       beforeEach ->
-        @e = new Event("tap")
-        @e.bokeh = {sx: 10, sy: 15}
-        @e.srcEvent = {shiftKey: false}
+        @e = {type: "tap", sx: 10, sy: 15, shiftKey: false}
 
       it "should not trigger tap event if no active tap tool", ->
-        @ui_events._trigger(@ui_events.tap, @e)
+        @ui_events._trigger(@ui_events.tap, @e, {target: null})
         assert(@spy_trigger.notCalled)
 
       it "should trigger tap event if exists an active tap tool", ->
         gesture = new TapTool()
         @plot.add_tools(gesture)
 
-        @ui_events._trigger(@ui_events.tap, @e)
+        @ui_events._trigger(@ui_events.tap, @e, {target: null})
 
         assert(@spy_trigger.calledOnce)
         expect(@spy_trigger.args[0]).to.be.deep.equal([@ui_events.tap, @e, gesture.id])
@@ -161,7 +158,7 @@ describe "ui_events module", ->
         ss = sinon.stub(@ui_events, "_hit_test_renderers").returns(legend_view)
         on_hit = sinon.stub(legend_view, "on_hit")
 
-        @ui_events._trigger(@ui_events.tap, @e)
+        @ui_events._trigger(@ui_events.tap, @e, {target: null})
         assert(on_hit.calledOnce)
         expect(on_hit.args[0]).to.be.deep.equal([10, 15])
 
@@ -170,16 +167,20 @@ describe "ui_events module", ->
 
     describe "base_type=scroll", ->
 
-      beforeEach ->
-        @e = new Event("scroll")
-        @e.bokeh = {}
+      afterEach ->
+        @preventDefault.restore()
+        @stopPropagation.restore()
 
-        @preventDefault = sinon.spy(@e, "preventDefault")
-        @stopPropagation = sinon.spy(@e, "stopPropagation")
+      beforeEach ->
+        @e = {type: "scroll"}
+        @srcEvent = new Event("scroll")
+
+        @preventDefault = sinon.spy(@srcEvent, "preventDefault")
+        @stopPropagation = sinon.spy(@srcEvent, "stopPropagation")
 
       it "should not trigger scroll event if no active scroll tool", ->
         @plot.toolbar.gestures["scroll"].active = null
-        @ui_events._trigger(@ui_events.scroll, @e)
+        @ui_events._trigger(@ui_events.scroll, @e, @srcEvent)
         assert(@spy_trigger.notCalled)
 
         # assert that default scrolling isn't hijacked
@@ -192,7 +193,7 @@ describe "ui_events module", ->
         # unclear why add_tools doesn't activate the tool, so have to do it manually
         @plot.toolbar.gestures['scroll'].active = gesture
 
-        @ui_events._trigger(@ui_events.scroll, @e)
+        @ui_events._trigger(@ui_events.scroll, @e, @srcEvent)
 
         # assert that default scrolling is disabled
         assert(@preventDefault.calledOnce)
@@ -204,18 +205,17 @@ describe "ui_events module", ->
     describe "normally propagate other gesture base_types", ->
 
       beforeEach ->
-        @e = new Event("pan")
-        @e.bokeh = {}
+        @e = {type: "pan"}
 
       it "should not trigger event if no active tool", ->
-        @ui_events._trigger(@ui_events.pan, @e)
+        @ui_events._trigger(@ui_events.pan, @e, {target: null})
         assert(@spy_trigger.notCalled)
 
       it "should trigger event if exists an active related tool", ->
         gesture = new PanTool()
         @plot.add_tools(gesture)
 
-        @ui_events._trigger(@ui_events.pan, @e)
+        @ui_events._trigger(@ui_events.pan, @e, {target: null})
 
         assert(@spy_trigger.calledOnce)
         expect(@spy_trigger.args[0]).to.be.deep.equal([@ui_events.pan, @e, gesture.id])
@@ -224,17 +224,19 @@ describe "ui_events module", ->
 
     afterEach ->
       @dom_stub.restore()
+      @spy.restore()
 
     beforeEach ->
       @dom_stub = sinon.stub(dom, "offset").returns({top: 0, left: 0})
       @spy = sinon.spy(@plot, "trigger_event")
 
     it "_bokify_hammer should trigger event with appropriate coords and model_id", ->
-      e = new Event("tap")
+      e = new Event("tap") # XXX: <- this is not a hammer event
       e.pointerType = "mouse"
       e.srcEvent = {pageX: 100, pageY: 200}
 
-      @ui_events._bokify_hammer(e)
+      ev = @ui_events._tap_event(e)
+      @ui_events._trigger_bokeh_event(ev)
 
       bk_event = @spy.args[0][0]
 
@@ -248,7 +250,8 @@ describe "ui_events module", ->
       e.pageX = 100
       e.pageY = 200
 
-      @ui_events._bokify_point_event(e)
+      ev = @ui_events._move_event(e)
+      @ui_events._trigger_bokeh_event(ev)
 
       bk_event = @spy.args[0][0]
 
@@ -266,6 +269,8 @@ describe "ui_events module", ->
 
     afterEach ->
       @dom_stub.restore()
+      @spy_plot.restore()
+      @spy_uievent.restore()
 
     beforeEach ->
       @dom_stub = sinon.stub(dom, "offset").returns({top: 0, left: 0})
@@ -319,7 +324,7 @@ describe "ui_events module", ->
 
       @ui_events._pan_start(e)
 
-      assert(@spy_plot.calledOnce)
+      assert(@spy_plot.called)
       assert(@spy_uievent.calledOnce)
 
     it "_pan method should handle pan event", ->
@@ -332,10 +337,10 @@ describe "ui_events module", ->
 
       @ui_events._pan(e)
 
-      assert(@spy_plot.calledOnce)
+      assert(@spy_plot.called)
       assert(@spy_uievent.calledOnce)
 
-    it "_pan_end method should handle pan event", ->
+    it "_pan_end method should handle pan end event", ->
       e = new Event("panend")
       e.pointerType = "mouse"
       e.srcEvent = {pageX: 100, pageY: 200}
@@ -451,7 +456,7 @@ describe "ui_events module", ->
 
       @ui_events._mouse_wheel(e)
 
-      assert(@spy_plot.calledOnce)
+      assert(@spy_plot.called)
       assert(@spy_uievent.calledOnce)
 
     # not implemented as tool method or BokehEvent
@@ -469,3 +474,31 @@ describe "ui_events module", ->
       # assert(@spy_plot.calledOnce)
       # This is a event on select tools that should probably be removed
       assert(@spy_uievent.calledOnce)
+
+    it "multi-gesture tool should receive multiple events", ->
+      class MultiToolView extends SelectToolView
+        _tap: (e) ->
+        _pan: (e) ->
+
+      class MultiTool extends SelectTool
+        default_view: MultiToolView
+        type: "MultiTool"
+        tool_name: "Multi Tool"
+        event_type: ["tap", "pan"]
+
+      tool = new MultiTool()
+      @plot.add_tools(tool)
+      tool.active = true
+
+      etap = new Event("tap")
+      etap.pointerType = "mouse"
+      etap.srcEvent = {pageX: 100, pageY: 200}
+
+      @ui_events._tap(etap)
+      assert(@spy_uievent.calledOnce, "Tap event not triggered")
+
+      epan = new Event("pan")
+      epan.pointerType = "mouse"
+      epan.srcEvent = {pageX: 100, pageY: 200}
+      @ui_events._pan(epan)
+      assert(@spy_uievent.calledTwice, "Pan event not triggered")

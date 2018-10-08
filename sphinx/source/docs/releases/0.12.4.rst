@@ -16,11 +16,6 @@ features and fixes several bugs. Some of the highlights include:
 
 Many other small bugfixes and docs additions. For full details see the :bokeh-tree:`CHANGELOG`.
 
-NOTE: the 0.12.x series is the last planned release series before a
-version 1.0 release. The focus of the 1.0 release will be implementing
-build automation to enforce API stability, and a very small number of
-high value features. For more information see the `project roadmap`_.
-
 Migration Guide
 ---------------
 
@@ -154,13 +149,13 @@ improves maintainability and allows the contents of ``bokeh.core.properties``
 to limited to things of that might be useful to users writing custom models.
 The new file structure:
 
-* :ref:`bokeh.core.has_props`
-* :ref:`bokeh.core.properties`
-* :ref:`bokeh.core.property.bases`
-* :ref:`bokeh.core.property.containers`
-* :ref:`bokeh.core.property.descriptors`
-* :ref:`bokeh.core.property.descriptor_factory`
-* :ref:`bokeh.core.property.override`
+* ``bokeh.core.has_props``
+* ``bokeh.core.properties``
+* ``bokeh.core.property.bases``
+* ``bokeh.core.property.containers``
+* ``bokeh.core.property.descriptors``
+* ``bokeh.core.property.descriptor_factory``
+* ``bokeh.core.property.override``
 
 The following class names have been changed to improve intent and clarity
 (i.e. only things that are actually Python descriptors are named "Descriptor"):
